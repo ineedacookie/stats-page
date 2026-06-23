@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from 'react'
+
 import { SECTION_ROTATION_MS } from './config/sections'
 import { SectionCarousel } from './components/SectionCarousel'
 import { SpuriousCorrelationWidget } from './components/SpuriousCorrelationWidget'
@@ -5,6 +7,30 @@ import { useLiveStats } from './hooks/useLiveStats'
 
 function App() {
   const { data, error, isLoading } = useLiveStats()
+  const [rotationClockMs, setRotationClockMs] = useState<number>(() => Date.now())
+  const [rotationAnchorMs, setRotationAnchorMs] = useState<number>(() => Date.now())
+  const didSetRotationAnchorRef = useRef(false)
+
+  useEffect(() => {
+    let animationFrameId = 0
+
+    const tick = () => {
+      setRotationClockMs(Date.now())
+      animationFrameId = window.requestAnimationFrame(tick)
+    }
+
+    animationFrameId = window.requestAnimationFrame(tick)
+    return () => {
+      window.cancelAnimationFrame(animationFrameId)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!didSetRotationAnchorRef.current && typeof data?.generatedAt === 'number') {
+      didSetRotationAnchorRef.current = true
+      setRotationAnchorMs(data.generatedAt)
+    }
+  }, [data?.generatedAt])
 
   return (
     <main className="h-screen w-screen overflow-hidden bg-slate-950 text-slate-100">
@@ -20,11 +46,13 @@ function App() {
                 API error: {error}
               </p>
             ) : null}
-            <div className="h-[22vh] min-h-[150px] max-h-[210px] shrink-0 border-b border-slate-800">
+            <div className="h-[16vh] min-h-[128px] max-h-[172px] shrink-0 border-b border-slate-800">
               <div className="h-full p-2">
                 <SectionCarousel
                   sections={data?.sections ?? []}
                   rotationMs={SECTION_ROTATION_MS}
+                  rotationAnchorMs={rotationAnchorMs}
+                  clockMs={rotationClockMs}
                 />
               </div>
             </div>
@@ -32,6 +60,9 @@ function App() {
               <SpuriousCorrelationWidget
                 data={data?.spurious ?? null}
                 className="h-full rounded-none border-0 p-2 ring-0"
+                rotationAnchorMs={rotationAnchorMs}
+                clockMs={rotationClockMs}
+                rotationMs={SECTION_ROTATION_MS}
               />
             </div>
           </div>

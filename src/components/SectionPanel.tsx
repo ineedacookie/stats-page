@@ -13,7 +13,7 @@ export const SectionPanel = ({
   selectedMetricId,
   onMetricSelect,
 }: SectionPanelProps) => {
-  const maxVisibleMetrics = section.id === 'worldometers-population' ? 4 : 6
+  const maxVisibleMetrics = 4
   const visibleMetrics = section.metrics.slice(0, maxVisibleMetrics)
   const selectedMetric =
     visibleMetrics.find((metric) => metric.id === selectedMetricId) ??
@@ -34,17 +34,9 @@ export const SectionPanel = ({
 
   return (
     <section
-      className={`flex h-full min-h-0 flex-col rounded-2xl border border-slate-800 bg-slate-900/60 p-3 ring-1 ${theme.ringClassName}`}
+      className={`flex h-full min-h-0 flex-col rounded-2xl border border-slate-800 bg-slate-900/60 p-2 ring-1 ${theme.ringClassName}`}
     >
-      <div className="mb-2 shrink-0">
-        <span
-          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${theme.badgeClassName}`}
-        >
-          {section.title}
-        </span>
-      </div>
-
-      <div className="grid min-h-0 flex-1 auto-rows-fr gap-2 md:grid-cols-3 xl:grid-cols-6">
+      <div className="grid min-h-0 flex-1 auto-rows-fr grid-cols-4 gap-2">
         {visibleMetrics.map((metric) => (
           <StatCard
             key={metric.id}

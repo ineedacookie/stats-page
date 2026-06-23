@@ -15,6 +15,7 @@ interface SpuriousCorrelationServiceOptions {
   storageFilePath: string
   intervalMs: number
   pagesPerRun: number
+  maxStoredCorrelations: number
   widgetCycleMs: number
 }
 
@@ -41,6 +42,7 @@ export class SpuriousCorrelationService {
   private readonly storageFilePath: string
   private readonly intervalMs: number
   private readonly pagesPerRun: number
+  private readonly maxStoredCorrelations: number
   private readonly widgetCycleMs: number
   private timer: NodeJS.Timeout | null = null
   private loaded = false
@@ -55,6 +57,7 @@ export class SpuriousCorrelationService {
     this.storageFilePath = options.storageFilePath
     this.intervalMs = options.intervalMs
     this.pagesPerRun = options.pagesPerRun
+    this.maxStoredCorrelations = Math.max(1, Math.floor(options.maxStoredCorrelations))
     this.widgetCycleMs = options.widgetCycleMs
 
     this.sourceHealth = {
@@ -137,6 +140,9 @@ export class SpuriousCorrelationService {
       this.storeFile.correlations = Array.from(byCorrelationNumber.values()).sort(
         (left, right) => left.correlationNumber - right.correlationNumber,
       )
+      this.storeFile.correlations = this.enforceMaxStoredCorrelations(
+        this.storeFile.correlations,
+      )
       this.storeFile.nextPage = this.resolveNextPage(result.nextPage, result.pagesScraped)
       this.storeFile.lastScrapedAt = Date.now()
 
@@ -167,7 +173,7 @@ export class SpuriousCorrelationService {
     try {
       const raw = await fs.readFile(this.storageFilePath, 'utf8')
       const parsed = JSON.parse(raw) as Partial<SpuriousStoreFile>
-      this.storeFile = {
+      const normalizedStoreFile: SpuriousStoreFile = {
         version: 1,
         nextPage:
           typeof parsed.nextPage === 'number' && parsed.nextPage > 0
@@ -175,7 +181,15 @@ export class SpuriousCorrelationService {
             : 1,
         lastScrapedAt:
           typeof parsed.lastScrapedAt === 'number' ? parsed.lastScrapedAt : null,
-        correlations: this.sanitizeCorrelations(parsed.correlations),
+        correlations: this.enforceMaxStoredCorrelations(
+          this.sanitizeCorrelations(parsed.correlations),
+        ),
+      }
+      this.storeFile = normalizedStoreFile
+
+      const normalizedJson = JSON.stringify(normalizedStoreFile)
+      if (raw !== normalizedJson) {
+        await this.saveToDisk()
       }
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
@@ -190,7 +204,7 @@ export class SpuriousCorrelationService {
   }
 
   private async saveToDisk(): Promise<void> {
-    const json = JSON.stringify(this.storeFile, null, 2)
+    const json = JSON.stringify(this.storeFile)
     const tempFilePath = `${this.storageFilePath}${SPURIOUS_WRITE_TEMP_SUFFIX}`
     await fs.writeFile(tempFilePath, json, 'utf8')
     await fs.rename(tempFilePath, this.storageFilePath)
@@ -251,5 +265,15 @@ export class SpuriousCorrelationService {
       this.storeFile.nextPage + Math.max(1, pagesScraped),
     )
     return guaranteedForwardProgress
+  }
+
+  private enforceMaxStoredCorrelations(
+    correlations: SpuriousCorrelationRecord[],
+  ): SpuriousCorrelationRecord[] {
+    if (correlations.length <= this.maxStoredCorrelations) {
+      return correlations
+    }
+
+    return correlations.slice(correlations.length - this.maxStoredCorrelations)
   }
 }

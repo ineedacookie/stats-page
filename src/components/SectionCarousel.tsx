@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
 import type { DashboardSection } from '../types/stats'
 import { SectionPanel } from './SectionPanel'
@@ -6,18 +6,19 @@ import { SectionPanel } from './SectionPanel'
 interface SectionCarouselProps {
   sections: DashboardSection[]
   rotationMs: number
+  rotationAnchorMs: number
+  clockMs: number
 }
 
 export const SectionCarousel = ({
   sections,
   rotationMs,
+  rotationAnchorMs,
+  clockMs,
 }: SectionCarouselProps) => {
-  const [activeIndex, setActiveIndex] = useState(0)
-  const [progressRatio, setProgressRatio] = useState(0)
   const [selectedMetricBySectionId, setSelectedMetricBySectionId] = useState<
     Record<string, string>
   >({})
-  const lastSwitchAtRef = useRef(Date.now())
 
   useEffect(() => {
     setSelectedMetricBySectionId((previous) => {
@@ -36,48 +37,23 @@ export const SectionCarousel = ({
     })
   }, [sections])
 
-  useEffect(() => {
-    setActiveIndex((previousIndex) => {
-      if (sections.length === 0) {
-        return 0
-      }
+  const rotationElapsedMs = Math.max(0, clockMs - rotationAnchorMs)
 
-      return Math.min(previousIndex, sections.length - 1)
-    })
-    setProgressRatio(0)
-    lastSwitchAtRef.current = Date.now()
-  }, [sections.length])
+  const activeIndex = useMemo(() => {
+    if (sections.length === 0) {
+      return 0
+    }
 
-  useEffect(() => {
+    return Math.floor(rotationElapsedMs / rotationMs) % sections.length
+  }, [rotationElapsedMs, rotationMs, sections.length])
+
+  const progressRatio = useMemo(() => {
     if (sections.length <= 1) {
-      setProgressRatio(0)
-      return
+      return 0
     }
 
-    let animationFrameId: number | null = null
-
-    const tick = () => {
-      const elapsed = Date.now() - lastSwitchAtRef.current
-
-      if (elapsed >= rotationMs) {
-        lastSwitchAtRef.current = Date.now()
-        setActiveIndex((previousIndex) => (previousIndex + 1) % sections.length)
-        setProgressRatio(0)
-      } else {
-        setProgressRatio(Math.min(1, elapsed / rotationMs))
-      }
-
-      animationFrameId = window.requestAnimationFrame(tick)
-    }
-
-    animationFrameId = window.requestAnimationFrame(tick)
-
-    return () => {
-      if (animationFrameId !== null) {
-        window.cancelAnimationFrame(animationFrameId)
-      }
-    }
-  }, [rotationMs, sections.length])
+    return (rotationElapsedMs % rotationMs) / rotationMs
+  }, [rotationElapsedMs, rotationMs, sections.length])
 
   const activeSection = useMemo(
     () => sections[activeIndex] ?? null,
@@ -107,10 +83,10 @@ export const SectionCarousel = ({
 
   return (
     <div className="flex h-full min-h-0 flex-col rounded-2xl">
-      <div className="mb-5 h-1.5 w-full overflow-hidden rounded-full bg-slate-800/80">
+      <div className="mb-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-800/80">
         <div
           className="h-full w-full origin-left rounded-full bg-gradient-to-r from-sky-400 via-fuchsia-400 to-emerald-400 will-change-transform"
-          style={{ transform: `scaleX(${Math.max(0, progressRatio)})` }}
+          style={{ transform: `scaleX(${progressRatio})` }}
         />
       </div>
 

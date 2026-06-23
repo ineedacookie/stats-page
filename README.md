@@ -11,31 +11,52 @@ Prereqs:
 - npm
 - git
 
-After cloning the repo, run one command:
+After cloning the repo, run:
+
+```bash
+npm run bootstrap
+```
+
+This helper script will:
+- install npm dependencies
+- install Puppeteer Chrome runtime
+- create `server-data/` if missing
+
+Then start the dashboard:
+
+```bash
+npm run dev
+```
+
+## Setup After You Pull Latest
+
+If the repo already exists and you just pulled changes, re-run:
+
+```bash
+npm run bootstrap
+```
+
+It is safe to run repeatedly; it only ensures your local environment is ready.
+
+If you want one command that pulls + sets up + starts everything:
 
 ```bash
 npm run dev:easy
 ```
 
-This helper script will:
-- pull latest changes (if branch has an upstream)
-- install npm dependencies
-- install Puppeteer Chrome runtime
-- create `server-data/` if missing
-- start frontend + backend
-
-Open:
-- Dashboard: `http://localhost:5173`
-- API: `http://localhost:4321/api/stats`
-
-If you want to skip auto-pull:
+To skip auto-pull in that flow:
 
 ```bash
 SKIP_PULL=1 npm run dev:easy
 ```
 
+Open:
+- Dashboard: `http://localhost:5173`
+- API: `http://localhost:4321/api/stats`
+
 ## Daily Commands
 
+- `npm run bootstrap` - one-step local environment setup
 - `npm run dev:easy` - easiest daily command (update + setup + run)
 - `npm run setup:easy` - setup only (no servers started)
 - `npm run dev` - run frontend + backend
@@ -53,6 +74,7 @@ All values are optional:
 - `STATS_SCRAPE_INTERVAL_MS` (default `3600000`)
 - `SPURIOUS_SCRAPE_INTERVAL_MS` (default `3600000`)
 - `SPURIOUS_PAGES_PER_RUN` (default `5`)
+- `SPURIOUS_MAX_STORED` (default `1500`)
 - `SPURIOUS_WIDGET_CYCLE_MS` (default `45000`)
 - `FRONTEND_POLL_INTERVAL_MS` (default `30000`)
 - `STALE_AFTER_MS` (default `7200000`)
@@ -76,3 +98,5 @@ All values are optional:
 - InternetLiveStats ingestion is removed from active dashboard sources.
 - Worldometers sections are intentionally compact for fullscreen display.
 - Spurious-correlation data is persisted and deduplicated in `server-data/`.
+- Spurious correlation storage is bounded (`SPURIOUS_MAX_STORED`) and written as compact JSON.
+- Metric history is in-memory only and bounded by `MAX_HISTORY_POINTS`.

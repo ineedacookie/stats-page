@@ -62,6 +62,10 @@ export const SERVER_CONFIG = {
     process.env.SPURIOUS_PAGES_PER_RUN,
     5,
   ),
+  spuriousMaxStored: parsePositiveNumberEnv(
+    process.env.SPURIOUS_MAX_STORED,
+    1_500,
+  ),
   spuriousWidgetCycleMs: parsePositiveNumberEnv(
     process.env.SPURIOUS_WIDGET_CYCLE_MS,
     45_000,

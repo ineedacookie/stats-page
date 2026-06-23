@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "bootstrap": "bash ./scripts/bootstrap.sh",
     "setup:easy": "bash ./scripts/setup-local.sh",
     "dev:easy": "bash ./scripts/dev-easy.sh",
     "dev": "concurrently -k -n SERVER,CLIENT -c cyan,magenta \"npm:dev:server\" \"npm:dev:client\"",

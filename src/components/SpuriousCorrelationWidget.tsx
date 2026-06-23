@@ -1,42 +1,30 @@
-import { useEffect, useState } from 'react'
-
 import { SPURIOUS_WIDGET_FALLBACK_CYCLE_MS } from '../config/sections'
 import type { SpuriousCorrelationWidgetPayload } from '../types/stats'
 
 interface SpuriousCorrelationWidgetProps {
   data: SpuriousCorrelationWidgetPayload | null
   className?: string
+  rotationAnchorMs: number
+  clockMs: number
+  rotationMs?: number
 }
 
 export const SpuriousCorrelationWidget = ({
   data,
   className,
+  rotationAnchorMs,
+  clockMs,
+  rotationMs,
 }: SpuriousCorrelationWidgetProps) => {
-  const [activeIndex, setActiveIndex] = useState(0)
-
   const correlations = data?.items ?? []
   const cycleIntervalMs =
-    data?.cycleIntervalMs ?? SPURIOUS_WIDGET_FALLBACK_CYCLE_MS
+    rotationMs ?? data?.cycleIntervalMs ?? SPURIOUS_WIDGET_FALLBACK_CYCLE_MS
 
-  useEffect(() => {
-    setActiveIndex(0)
-  }, [correlations.length])
-
-  useEffect(() => {
-    if (correlations.length <= 1) {
-      return
-    }
-
-    const timer = setInterval(() => {
-      setActiveIndex((previousIndex) =>
-        previousIndex + 1 >= correlations.length ? 0 : previousIndex + 1,
-      )
-    }, cycleIntervalMs)
-
-    return () => {
-      clearInterval(timer)
-    }
-  }, [correlations.length, cycleIntervalMs])
+  const rotationElapsedMs = Math.max(0, clockMs - rotationAnchorMs)
+  const activeIndex =
+    correlations.length === 0
+      ? 0
+      : Math.floor(rotationElapsedMs / cycleIntervalMs) % correlations.length
 
   const activeCorrelation = correlations[activeIndex] ?? null
 

@@ -67,6 +67,7 @@ const createApp = async (): Promise<{
     storageFilePath: SERVER_CONFIG.spuriousStoreFile,
     intervalMs: SERVER_CONFIG.spuriousScrapeIntervalMs,
     pagesPerRun: SERVER_CONFIG.spuriousPagesPerRun,
+    maxStoredCorrelations: SERVER_CONFIG.spuriousMaxStored,
     widgetCycleMs: SERVER_CONFIG.spuriousWidgetCycleMs,
   })
 
