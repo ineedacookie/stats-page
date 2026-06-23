@@ -32,6 +32,8 @@ const DEFAULT_STORE_FILE: SpuriousStoreFile = {
   correlations: [],
 }
 
+const SPURIOUS_WRITE_TEMP_SUFFIX = '.tmp-write'
+
 export class SpuriousCorrelationService {
   private readonly scraper: SpuriousCorrelationsScraper
   private readonly sourceUrl: string
@@ -60,6 +62,11 @@ export class SpuriousCorrelationService {
       label: options.sourceLabel,
       sourceUrl: options.sourceUrl,
       intervalMs: options.intervalMs,
+      expectedMetricCount: 0,
+      resolvedMetricCount: 0,
+      unresolvedMetricCount: 0,
+      partial: false,
+      freshnessMs: null,
       connected: false,
       stale: true,
       lastSuccessfulScrapeAt: null,
@@ -130,7 +137,7 @@ export class SpuriousCorrelationService {
       this.storeFile.correlations = Array.from(byCorrelationNumber.values()).sort(
         (left, right) => left.correlationNumber - right.correlationNumber,
       )
-      this.storeFile.nextPage = Math.max(1, result.nextPage)
+      this.storeFile.nextPage = this.resolveNextPage(result.nextPage, result.pagesScraped)
       this.storeFile.lastScrapedAt = Date.now()
 
       await this.saveToDisk()
@@ -168,18 +175,7 @@ export class SpuriousCorrelationService {
             : 1,
         lastScrapedAt:
           typeof parsed.lastScrapedAt === 'number' ? parsed.lastScrapedAt : null,
-        correlations: Array.isArray(parsed.correlations)
-          ? parsed.correlations.filter(
-              (entry): entry is SpuriousCorrelationRecord =>
-                typeof entry === 'object' &&
-                entry !== null &&
-                typeof (entry as SpuriousCorrelationRecord).correlationNumber ===
-                  'number' &&
-                typeof (entry as SpuriousCorrelationRecord).title === 'string' &&
-                typeof (entry as SpuriousCorrelationRecord).detailUrl === 'string' &&
-                typeof (entry as SpuriousCorrelationRecord).imageUrl === 'string',
-            )
-          : [],
+        correlations: this.sanitizeCorrelations(parsed.correlations),
       }
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
@@ -195,14 +191,65 @@ export class SpuriousCorrelationService {
 
   private async saveToDisk(): Promise<void> {
     const json = JSON.stringify(this.storeFile, null, 2)
-    await fs.writeFile(this.storageFilePath, json, 'utf8')
+    const tempFilePath = `${this.storageFilePath}${SPURIOUS_WRITE_TEMP_SUFFIX}`
+    await fs.writeFile(tempFilePath, json, 'utf8')
+    await fs.rename(tempFilePath, this.storageFilePath)
   }
 
   private refreshStaleness(): void {
     const now = Date.now()
     const staleThresholdMs = this.intervalMs * 1.5
+    this.sourceHealth.freshnessMs =
+      this.sourceHealth.lastSuccessfulScrapeAt === null
+        ? null
+        : Math.max(0, now - this.sourceHealth.lastSuccessfulScrapeAt)
     this.sourceHealth.stale =
-      this.sourceHealth.lastSuccessfulScrapeAt === null ||
-      now - this.sourceHealth.lastSuccessfulScrapeAt > staleThresholdMs
+      this.sourceHealth.freshnessMs === null ||
+      this.sourceHealth.freshnessMs > staleThresholdMs
+  }
+
+  private sanitizeCorrelations(
+    unknownEntries: unknown,
+  ): SpuriousCorrelationRecord[] {
+    if (!Array.isArray(unknownEntries)) {
+      return []
+    }
+
+    const dedupedByCorrelation = new Map<number, SpuriousCorrelationRecord>()
+    for (const entry of unknownEntries) {
+      if (
+        typeof entry !== 'object' ||
+        entry === null ||
+        typeof (entry as SpuriousCorrelationRecord).correlationNumber !== 'number' ||
+        !Number.isInteger((entry as SpuriousCorrelationRecord).correlationNumber) ||
+        typeof (entry as SpuriousCorrelationRecord).title !== 'string' ||
+        typeof (entry as SpuriousCorrelationRecord).detailUrl !== 'string' ||
+        typeof (entry as SpuriousCorrelationRecord).imageUrl !== 'string'
+      ) {
+        continue
+      }
+
+      dedupedByCorrelation.set(
+        (entry as SpuriousCorrelationRecord).correlationNumber,
+        entry as SpuriousCorrelationRecord,
+      )
+    }
+
+    return Array.from(dedupedByCorrelation.values()).sort(
+      (left, right) => left.correlationNumber - right.correlationNumber,
+    )
+  }
+
+  private resolveNextPage(rawNextPage: number, pagesScraped: number): number {
+    const candidateNextPage = Number.isInteger(rawNextPage) ? rawNextPage : 1
+    if (candidateNextPage > this.storeFile.nextPage) {
+      return candidateNextPage
+    }
+
+    const guaranteedForwardProgress = Math.max(
+      1,
+      this.storeFile.nextPage + Math.max(1, pagesScraped),
+    )
+    return guaranteedForwardProgress
   }
 }

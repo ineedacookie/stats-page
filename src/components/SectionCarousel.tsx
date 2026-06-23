@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 import type { DashboardSection } from '../types/stats'
 import { SectionPanel } from './SectionPanel'
@@ -13,7 +13,6 @@ export const SectionCarousel = ({
   rotationMs,
 }: SectionCarouselProps) => {
   const [activeIndex, setActiveIndex] = useState(0)
-  const [isPaused, setIsPaused] = useState(false)
   const [progressRatio, setProgressRatio] = useState(0)
   const [selectedMetricBySectionId, setSelectedMetricBySectionId] = useState<
     Record<string, string>
@@ -35,7 +34,9 @@ export const SectionCarousel = ({
 
       return next
     })
+  }, [sections])
 
+  useEffect(() => {
     setActiveIndex((previousIndex) => {
       if (sections.length === 0) {
         return 0
@@ -43,7 +44,9 @@ export const SectionCarousel = ({
 
       return Math.min(previousIndex, sections.length - 1)
     })
-  }, [sections])
+    setProgressRatio(0)
+    lastSwitchAtRef.current = Date.now()
+  }, [sections.length])
 
   useEffect(() => {
     if (sections.length <= 1) {
@@ -51,39 +54,35 @@ export const SectionCarousel = ({
       return
     }
 
-    const timer = setInterval(() => {
-      if (isPaused) {
-        return
-      }
+    let animationFrameId: number | null = null
 
+    const tick = () => {
       const elapsed = Date.now() - lastSwitchAtRef.current
-      const ratio = Math.min(1, elapsed / rotationMs)
-      setProgressRatio(ratio)
 
-      if (elapsed < rotationMs) {
-        return
+      if (elapsed >= rotationMs) {
+        lastSwitchAtRef.current = Date.now()
+        setActiveIndex((previousIndex) => (previousIndex + 1) % sections.length)
+        setProgressRatio(0)
+      } else {
+        setProgressRatio(Math.min(1, elapsed / rotationMs))
       }
 
-      setActiveIndex((previousIndex) => (previousIndex + 1) % sections.length)
-      setProgressRatio(0)
-      lastSwitchAtRef.current = Date.now()
-    }, 250)
+      animationFrameId = window.requestAnimationFrame(tick)
+    }
+
+    animationFrameId = window.requestAnimationFrame(tick)
 
     return () => {
-      clearInterval(timer)
+      if (animationFrameId !== null) {
+        window.cancelAnimationFrame(animationFrameId)
+      }
     }
-  }, [isPaused, rotationMs, sections.length])
+  }, [rotationMs, sections.length])
 
   const activeSection = useMemo(
     () => sections[activeIndex] ?? null,
     [activeIndex, sections],
   )
-
-  const handleSectionSelect = (sectionIndex: number): void => {
-    setActiveIndex(sectionIndex)
-    setProgressRatio(0)
-    lastSwitchAtRef.current = Date.now()
-  }
 
   const handleMetricSelect = (metricId: string): void => {
     if (!activeSection) {
@@ -96,33 +95,9 @@ export const SectionCarousel = ({
     }))
   }
 
-  const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
-    if (sections.length === 0) {
-      return
-    }
-
-    if (event.key === 'ArrowRight') {
-      event.preventDefault()
-      handleSectionSelect((activeIndex + 1) % sections.length)
-      return
-    }
-
-    if (event.key === 'ArrowLeft') {
-      event.preventDefault()
-      const nextIndex = activeIndex === 0 ? sections.length - 1 : activeIndex - 1
-      handleSectionSelect(nextIndex)
-      return
-    }
-
-    if (event.key === ' ') {
-      event.preventDefault()
-      setIsPaused((previous) => !previous)
-    }
-  }
-
   if (!activeSection) {
     return (
-      <section className="rounded-3xl border border-slate-800 bg-slate-900/60 p-8 text-slate-300">
+      <section className="h-full rounded-3xl border border-slate-800 bg-slate-900/60 p-8 text-slate-300">
         Waiting for section data...
       </section>
     )
@@ -131,50 +106,23 @@ export const SectionCarousel = ({
   const selectedMetricId = selectedMetricBySectionId[activeSection.id] ?? null
 
   return (
-    <div
-      onMouseEnter={() => setIsPaused(true)}
-      onMouseLeave={() => setIsPaused(false)}
-      onKeyDown={handleKeyDown}
-      tabIndex={0}
-      className="outline-none"
-    >
-      <div className="mb-4 flex flex-wrap gap-2">
-        {sections.map((section, index) => {
-          const isActive = index === activeIndex
-          const buttonClassName = isActive
-            ? 'bg-slate-100 text-slate-900'
-            : 'bg-slate-800/80 text-slate-200 hover:bg-slate-700/80'
-
-          return (
-            <button
-              key={section.id}
-              type="button"
-              onClick={() => handleSectionSelect(index)}
-              className={`rounded-full px-4 py-2 text-sm font-medium transition ${buttonClassName}`}
-            >
-              {section.title}
-            </button>
-          )
-        })}
-      </div>
-
+    <div className="flex h-full min-h-0 flex-col rounded-2xl">
       <div className="mb-5 h-1.5 w-full overflow-hidden rounded-full bg-slate-800/80">
         <div
-          className="h-full rounded-full bg-gradient-to-r from-sky-400 via-fuchsia-400 to-emerald-400 transition-[width] duration-200"
-          style={{ width: `${Math.max(2, progressRatio * 100)}%` }}
+          className="h-full w-full origin-left rounded-full bg-gradient-to-r from-sky-400 via-fuchsia-400 to-emerald-400 will-change-transform"
+          style={{ transform: `scaleX(${Math.max(0, progressRatio)})` }}
         />
       </div>
 
-      <SectionPanel
-        section={activeSection}
-        selectedMetricId={selectedMetricId}
-        onMetricSelect={handleMetricSelect}
-      />
-
-      <p className="mt-3 text-xs text-slate-500">
-        Auto-cycle every {Math.round(rotationMs / 1000)}s. Hover or press space to
-        pause. Arrow keys switch sections.
-      </p>
+      <div className="min-h-0 flex-1 overflow-hidden">
+        <div key={activeSection.id} className="h-full rotate-slide-in-right">
+          <SectionPanel
+            section={activeSection}
+            selectedMetricId={selectedMetricId}
+            onMetricSelect={handleMetricSelect}
+          />
+        </div>
+      </div>
     </div>
   )
 }

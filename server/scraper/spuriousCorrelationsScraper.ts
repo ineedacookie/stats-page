@@ -53,11 +53,17 @@ export class SpuriousCorrelationsScraper {
     let currentPage = Math.max(1, startPage)
     const allItems: SpuriousCorrelationRecord[] = []
     let pagesScraped = 0
+    const visitedPages = new Set<number>()
 
     for (let index = 0; index < pagesToScrape; index += 1) {
+      if (visitedPages.has(currentPage)) {
+        break
+      }
+      visitedPages.add(currentPage)
+
       const pageResult = await this.scrapePage(currentPage)
       allItems.push(...pageResult.items)
-      currentPage = pageResult.nextPage
+      currentPage = this.resolveNextPage(currentPage, pageResult.nextPage)
       pagesScraped += 1
     }
 
@@ -170,5 +176,13 @@ export class SpuriousCorrelationsScraper {
       .replace(/[_-]+/g, ' ')
       .replace(/\s+/g, ' ')
       .trim()
+  }
+
+  private resolveNextPage(currentPage: number, reportedNextPage: number): number {
+    if (reportedNextPage > currentPage) {
+      return reportedNextPage
+    }
+
+    return currentPage + 1
   }
 }

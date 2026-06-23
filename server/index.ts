@@ -3,7 +3,7 @@ import express from 'express'
 
 import { SERVER_CONFIG } from './config.js'
 import { createStatsRouter } from './routes/stats.js'
-import { InternetLiveStatsScraper } from './scraper/internetLiveStatsScraper.js'
+import { BrowserScrapeRuntime } from './scraper/browserScrapeRuntime.js'
 import { PoliteHtmlClient } from './scraper/politeHtmlClient.js'
 import { SpuriousCorrelationsScraper } from './scraper/spuriousCorrelationsScraper.js'
 import { WorldometersScraper } from './scraper/worldometersScraper.js'
@@ -18,12 +18,6 @@ const createApp = async (): Promise<{
   spuriousCorrelationService: SpuriousCorrelationService
 }> => {
   const statsSources: StatsSourceDefinition[] = [
-    {
-      sourceId: 'internetlivestats',
-      label: SERVER_CONFIG.sourcesMetadata.internetLiveStatsLabel,
-      sourceUrl: SERVER_CONFIG.internetLiveStatsUrl,
-      intervalMs: SERVER_CONFIG.statsScrapeIntervalMs,
-    },
     {
       sourceId: 'worldometers',
       label: SERVER_CONFIG.sourcesMetadata.worldometersLabel,
@@ -46,16 +40,17 @@ const createApp = async (): Promise<{
     requestTimeoutMs: SERVER_CONFIG.requestTimeoutMs,
   })
 
-  const internetLiveStatsScraper = new InternetLiveStatsScraper({
-    sourceUrl: SERVER_CONFIG.internetLiveStatsUrl,
-    htmlClient: politeHtmlClient,
-    maxPopulateAttempts: SERVER_CONFIG.scrapePopulateMaxAttempts,
-    populateWaitMs: SERVER_CONFIG.scrapePopulateWaitMs,
+  const browserScrapeRuntime = new BrowserScrapeRuntime({
+    userAgent: SERVER_CONFIG.scraperUserAgent,
+    launchTimeoutMs: SERVER_CONFIG.browserLaunchTimeoutMs,
+    navigationTimeoutMs: SERVER_CONFIG.browserNavigationTimeoutMs,
+    populateTimeoutMs: SERVER_CONFIG.browserPopulateTimeoutMs,
+    operationTimeoutMs: SERVER_CONFIG.browserOperationTimeoutMs,
   })
 
   const worldometersScraper = new WorldometersScraper({
     sourceUrl: SERVER_CONFIG.worldometersUrl,
-    htmlClient: politeHtmlClient,
+    runtime: browserScrapeRuntime,
     maxPopulateAttempts: SERVER_CONFIG.scrapePopulateMaxAttempts,
     populateWaitMs: SERVER_CONFIG.scrapePopulateWaitMs,
   })
@@ -80,10 +75,6 @@ const createApp = async (): Promise<{
     sources: [
       {
         ...statsSources[0],
-        scraper: internetLiveStatsScraper,
-      },
-      {
-        ...statsSources[1],
         scraper: worldometersScraper,
       },
     ],

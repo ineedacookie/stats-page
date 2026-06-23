@@ -1,4 +1,5 @@
-export type MetricStatus = 'ok' | 'stale' | 'error'
+export type MetricStatus = 'ok' | 'stale' | 'partial' | 'error'
+export type MetricProvenance = 'current-scrape' | 'last-known' | 'unavailable'
 
 export interface MetricPoint {
   timestamp: number
@@ -15,6 +16,8 @@ export interface DashboardMetric {
   unit?: string
   accent: string
   status: MetricStatus
+  provenance: MetricProvenance
+  freshnessMs: number | null
   latestValue: number | null
   lastUpdated: number | null
   rawText: string | null
@@ -35,6 +38,11 @@ export interface SourceHealth {
   label: string
   sourceUrl: string
   intervalMs: number
+  expectedMetricCount: number
+  resolvedMetricCount: number
+  unresolvedMetricCount: number
+  partial: boolean
+  freshnessMs: number | null
   connected: boolean
   stale: boolean
   lastSuccessfulScrapeAt: number | null

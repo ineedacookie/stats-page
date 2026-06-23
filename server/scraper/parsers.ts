@@ -1,4 +1,4 @@
-const LOADING_MARKERS = ['retrieving', 'loading', 'please wait']
+export const LOADING_COUNTER_MARKERS = ['retrieving', 'loading', 'please wait']
 
 const normalizeSeparators = (value: string): string => {
   const hasComma = value.includes(',')
@@ -34,7 +34,7 @@ export const isLoadingCounterText = (rawText: string): boolean => {
     return true
   }
 
-  return LOADING_MARKERS.some((marker) => normalized.includes(marker))
+  return LOADING_COUNTER_MARKERS.some((marker) => normalized.includes(marker))
 }
 
 export const parseCounterValue = (rawText: string): number | null => {

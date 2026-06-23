@@ -26,7 +26,7 @@ interface TooltipProps {
 }
 
 const tooltipClassName =
-  'rounded-lg border border-slate-700 bg-slate-950/95 px-3 py-2 text-xs shadow-lg'
+  'rounded-lg border border-slate-700 bg-slate-950/95 px-3 py-2 text-base shadow-lg'
 
 const CustomTooltip = ({ active, payload, label }: TooltipProps) => {
   if (!active || !payload || payload.length === 0) {
@@ -53,7 +53,7 @@ export const TrendChart = ({ metric, compact = false }: TrendChartProps) => {
 
   if (data.length < 2) {
     return (
-      <div className="flex h-full min-h-24 items-center justify-center rounded-xl border border-slate-800 bg-slate-900/50 text-xs text-slate-400">
+      <div className="flex h-full min-h-24 items-center justify-center rounded-xl border border-slate-800 bg-slate-900/50 text-base text-slate-300">
         Waiting for more samples...
       </div>
     )

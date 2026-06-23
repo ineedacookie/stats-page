@@ -65,6 +65,9 @@ export class PollerService {
 
         try {
           const readings = await source.scraper.scrape()
+          if (readings.size === 0) {
+            throw new Error('Source scrape returned zero populated counters')
+          }
           this.historyStore.recordSuccess(source.sourceId, readings)
         } catch (error) {
           this.historyStore.recordFailure(source.sourceId, error)

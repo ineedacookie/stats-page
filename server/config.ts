@@ -29,13 +29,29 @@ export const SERVER_CONFIG = {
   staleAfterMs: parsePositiveNumberEnv(process.env.STALE_AFTER_MS, 7_200_000),
   maxHistoryPoints: parsePositiveNumberEnv(process.env.MAX_HISTORY_POINTS, 1_000),
   requestTimeoutMs: parsePositiveNumberEnv(process.env.REQUEST_TIMEOUT_MS, 45_000),
+  browserLaunchTimeoutMs: parsePositiveNumberEnv(
+    process.env.BROWSER_LAUNCH_TIMEOUT_MS,
+    30_000,
+  ),
+  browserNavigationTimeoutMs: parsePositiveNumberEnv(
+    process.env.BROWSER_NAVIGATION_TIMEOUT_MS,
+    30_000,
+  ),
+  browserPopulateTimeoutMs: parsePositiveNumberEnv(
+    process.env.BROWSER_POPULATE_TIMEOUT_MS,
+    20_000,
+  ),
+  browserOperationTimeoutMs: parsePositiveNumberEnv(
+    process.env.BROWSER_OPERATION_TIMEOUT_MS,
+    55_000,
+  ),
   scrapePopulateMaxAttempts: parsePositiveNumberEnv(
     process.env.SCRAPE_POPULATE_MAX_ATTEMPTS,
-    3,
+    1,
   ),
   scrapePopulateWaitMs: parsePositiveNumberEnv(
     process.env.SCRAPE_POPULATE_WAIT_MS,
-    10_000,
+    5_000,
   ),
   politeMinDelayMs: parsePositiveNumberEnv(process.env.POLITE_MIN_DELAY_MS, 15_000),
   politeJitterMs: parsePositiveNumberEnv(process.env.POLITE_JITTER_MS, 5_000),
@@ -48,7 +64,7 @@ export const SERVER_CONFIG = {
   ),
   spuriousWidgetCycleMs: parsePositiveNumberEnv(
     process.env.SPURIOUS_WIDGET_CYCLE_MS,
-    9_000,
+    45_000,
   ),
   frontendPollIntervalMs: parsePositiveNumberEnv(
     process.env.FRONTEND_POLL_INTERVAL_MS,

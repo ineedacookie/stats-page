@@ -57,17 +57,37 @@ export const createStatsRouter = (
   router.get('/health', (_request, response) => {
     const basePayload = historyStore.buildPayload(10)
     const spuriousPayload = spuriousCorrelationService.getWidgetPayload(10)
+    const sources = [
+      ...basePayload.sources,
+      spuriousCorrelationService.getSourceHealth(),
+    ]
+    const expectedMetricCount = sources.reduce(
+      (count, source) => count + source.expectedMetricCount,
+      0,
+    )
+    const resolvedMetricCount = sources.reduce(
+      (count, source) => count + source.resolvedMetricCount,
+      0,
+    )
+    const unresolvedMetricCount = sources.reduce(
+      (count, source) => count + source.unresolvedMetricCount,
+      0,
+    )
+
     response.json({
       generatedAt: basePayload.generatedAt,
-      sources: [
-        ...basePayload.sources,
-        spuriousCorrelationService.getSourceHealth(),
-      ],
+      sources,
+      connectedSourceCount: sources.filter((source) => source.connected).length,
+      staleSourceCount: sources.filter((source) => source.stale).length,
+      partialSourceCount: sources.filter((source) => source.partial).length,
       sectionCount: basePayload.sections.length,
       metricCount: basePayload.sections.reduce(
         (count, section) => count + section.metrics.length,
         0,
       ),
+      expectedMetricCount,
+      resolvedMetricCount,
+      unresolvedMetricCount,
       spuriousCount: spuriousPayload.total,
       spuriousNextPage: spuriousPayload.nextPage,
     })

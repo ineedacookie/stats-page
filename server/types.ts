@@ -3,14 +3,20 @@ export type MetricCategoryId =
   | 'activity'
   | 'social'
   | 'infrastructure'
-  | 'worldometers'
+  | 'worldometers-population'
+  | 'worldometers-economics'
+  | 'worldometers-society'
+  | 'worldometers-environment'
+  | 'worldometers-food'
+  | 'worldometers-water-energy'
 
 export type SourceId =
   | 'internetlivestats'
   | 'worldometers'
   | 'spurious-correlations'
 
-export type MetricStatus = 'ok' | 'stale' | 'error'
+export type MetricStatus = 'ok' | 'stale' | 'partial' | 'error'
+export type MetricProvenance = 'current-scrape' | 'last-known' | 'unavailable'
 
 export interface MetricDefinition {
   id: string
@@ -50,6 +56,11 @@ export interface SourceHealth {
   label: string
   sourceUrl: string
   intervalMs: number
+  expectedMetricCount: number
+  resolvedMetricCount: number
+  unresolvedMetricCount: number
+  partial: boolean
+  freshnessMs: number | null
   connected: boolean
   stale: boolean
   lastSuccessfulScrapeAt: number | null
@@ -59,6 +70,8 @@ export interface SourceHealth {
 
 export interface DashboardMetric extends MetricDefinition {
   status: MetricStatus
+  provenance: MetricProvenance
+  freshnessMs: number | null
   latestValue: number | null
   lastUpdated: number | null
   rawText: string | null
