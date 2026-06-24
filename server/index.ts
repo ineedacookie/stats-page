@@ -1,3 +1,5 @@
+import type { Server } from 'node:http'
+
 import cors from 'cors'
 import express from 'express'
 
@@ -11,6 +13,42 @@ import { HistoryStore } from './services/historyStore.js'
 import { PollerService } from './services/poller.js'
 import { SpuriousCorrelationService } from './services/spuriousCorrelationService.js'
 import type { StatsSourceDefinition } from './types.js'
+
+const SHUTDOWN_STEP_TIMEOUT_MS = 4_000
+const SHUTDOWN_HARD_TIMEOUT_MS = 6_000
+
+const runWithTimeout = async <T>(
+  operation: () => Promise<T>,
+  timeoutMs: number,
+  timeoutMessage: string,
+): Promise<T> => {
+  let timeoutHandle: NodeJS.Timeout | null = null
+  const timeoutPromise = new Promise<T>((_resolve, reject) => {
+    timeoutHandle = setTimeout(() => {
+      reject(new Error(timeoutMessage))
+    }, timeoutMs)
+  })
+
+  try {
+    return await Promise.race([operation(), timeoutPromise])
+  } finally {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle)
+    }
+  }
+}
+
+const closeServer = async (server: Server): Promise<void> => {
+  await new Promise<void>((resolve, reject) => {
+    server.close((error) => {
+      if (error) {
+        reject(error)
+        return
+      }
+      resolve()
+    })
+  })
+}
 
 const createApp = async (): Promise<{
   app: express.Express
@@ -109,27 +147,69 @@ const startServer = async (): Promise<void> => {
 
   let shuttingDown = false
 
-  const shutdown = async (signal: string): Promise<void> => {
+  const shutdown = async (
+    signal: string,
+    options: { exitCode?: number } = {},
+  ): Promise<void> => {
     if (shuttingDown) {
       return
     }
 
     shuttingDown = true
     console.log(`[server] received ${signal}, shutting down`)
+    const hardExitCode = options.exitCode ?? 1
+    const hardTimeoutHandle = setTimeout(() => {
+      console.error(
+        `[server] shutdown exceeded ${SHUTDOWN_HARD_TIMEOUT_MS}ms, forcing exit`,
+      )
+      process.exit(hardExitCode)
+    }, SHUTDOWN_HARD_TIMEOUT_MS)
+    hardTimeoutHandle.unref()
 
-    await poller.stop()
-    await spuriousCorrelationService.stop()
+    await Promise.allSettled([
+      runWithTimeout(
+        async () => {
+          await poller.stop()
+        },
+        SHUTDOWN_STEP_TIMEOUT_MS,
+        `poller.stop timed out after ${SHUTDOWN_STEP_TIMEOUT_MS}ms`,
+      ),
+      runWithTimeout(
+        async () => {
+          await spuriousCorrelationService.stop()
+        },
+        SHUTDOWN_STEP_TIMEOUT_MS,
+        `spuriousCorrelationService.stop timed out after ${SHUTDOWN_STEP_TIMEOUT_MS}ms`,
+      ),
+      runWithTimeout(
+        async () => {
+          await closeServer(server)
+        },
+        SHUTDOWN_STEP_TIMEOUT_MS,
+        `server.close timed out after ${SHUTDOWN_STEP_TIMEOUT_MS}ms`,
+      ),
+    ])
 
-    await new Promise<void>((resolve) => {
-      server.close(() => resolve())
-    })
+    clearTimeout(hardTimeoutHandle)
+
+    if (typeof options.exitCode === 'number') {
+      process.exit(options.exitCode)
+    }
   }
 
-  process.on('SIGINT', () => {
-    void shutdown('SIGINT')
+  process.once('SIGINT', () => {
+    void shutdown('SIGINT', { exitCode: 0 })
   })
-  process.on('SIGTERM', () => {
-    void shutdown('SIGTERM')
+  process.once('SIGTERM', () => {
+    void shutdown('SIGTERM', { exitCode: 0 })
+  })
+  process.once('uncaughtException', (error) => {
+    console.error('[server] uncaught exception', error)
+    void shutdown('uncaughtException', { exitCode: 1 })
+  })
+  process.once('unhandledRejection', (reason) => {
+    console.error('[server] unhandled rejection', reason)
+    void shutdown('unhandledRejection', { exitCode: 1 })
   })
 }
 

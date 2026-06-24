@@ -19,6 +19,8 @@ interface StatsPollerOptions {
   historyStore: HistoryStore
 }
 
+const SCRAPER_CLOSE_TIMEOUT_MS = 3_000
+
 export class PollerService {
   private readonly intervalMs: number
   private readonly sources: StatsSourceRunner[]
@@ -46,9 +48,23 @@ export class PollerService {
       this.timer = null
     }
 
-    for (const source of this.sources) {
-      await source.scraper.close().catch(() => undefined)
-    }
+    await Promise.allSettled(
+      this.sources.map(async (source) => {
+        await this.runWithTimeout(
+          async () => {
+            await source.scraper.close()
+          },
+          SCRAPER_CLOSE_TIMEOUT_MS,
+          `Scraper close timed out after ${SCRAPER_CLOSE_TIMEOUT_MS}ms`,
+        ).catch((error) => {
+          const message =
+            error instanceof Error ? error.message : 'Unknown scraper close failure'
+          console.warn(
+            `[poller] scraper shutdown fallback for ${source.label}: ${message}`,
+          )
+        })
+      }),
+    )
   }
 
   public async pollOnce(): Promise<void> {
@@ -79,6 +95,27 @@ export class PollerService {
       }
     } finally {
       this.pollInFlight = false
+    }
+  }
+
+  private async runWithTimeout<T>(
+    operation: () => Promise<T>,
+    timeoutMs: number,
+    timeoutMessage: string,
+  ): Promise<T> {
+    let timeoutHandle: NodeJS.Timeout | null = null
+    const timeoutPromise = new Promise<T>((_resolve, reject) => {
+      timeoutHandle = setTimeout(() => {
+        reject(new Error(timeoutMessage))
+      }, timeoutMs)
+    })
+
+    try {
+      return await Promise.race([operation(), timeoutPromise])
+    } finally {
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle)
+      }
     }
   }
 }
