@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { SECTION_ROTATION_MS } from './config/sections'
 import { SectionCarousel } from './components/SectionCarousel'
@@ -7,30 +7,17 @@ import { useLiveStats } from './hooks/useLiveStats'
 
 function App() {
   const { data, error, isLoading } = useLiveStats()
-  const [rotationClockMs, setRotationClockMs] = useState<number>(() => Date.now())
-  const [rotationAnchorMs, setRotationAnchorMs] = useState<number>(() => Date.now())
-  const didSetRotationAnchorRef = useRef(false)
+  const [rotationStep, setRotationStep] = useState(0)
 
   useEffect(() => {
-    let animationFrameId = 0
+    const timerId = window.setInterval(() => {
+      setRotationStep((currentStep) => currentStep + 1)
+    }, SECTION_ROTATION_MS)
 
-    const tick = () => {
-      setRotationClockMs(Date.now())
-      animationFrameId = window.requestAnimationFrame(tick)
-    }
-
-    animationFrameId = window.requestAnimationFrame(tick)
     return () => {
-      window.cancelAnimationFrame(animationFrameId)
+      window.clearInterval(timerId)
     }
   }, [])
-
-  useEffect(() => {
-    if (!didSetRotationAnchorRef.current && typeof data?.generatedAt === 'number') {
-      didSetRotationAnchorRef.current = true
-      setRotationAnchorMs(data.generatedAt)
-    }
-  }, [data?.generatedAt])
 
   return (
     <main className="h-screen w-screen overflow-hidden bg-slate-950 text-slate-100">
@@ -51,8 +38,7 @@ function App() {
                 <SectionCarousel
                   sections={data?.sections ?? []}
                   rotationMs={SECTION_ROTATION_MS}
-                  rotationAnchorMs={rotationAnchorMs}
-                  clockMs={rotationClockMs}
+                  rotationStep={rotationStep}
                 />
               </div>
             </div>
@@ -60,9 +46,7 @@ function App() {
               <SpuriousCorrelationWidget
                 data={data?.spurious ?? null}
                 className="h-full rounded-none border-0 p-2 ring-0"
-                rotationAnchorMs={rotationAnchorMs}
-                clockMs={rotationClockMs}
-                rotationMs={SECTION_ROTATION_MS}
+                rotationStep={rotationStep}
               />
             </div>
           </div>

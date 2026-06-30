@@ -38,13 +38,14 @@ export const useLiveStats = (
   const [error, setError] = useState<string | null>(null)
   const [lastFetchAt, setLastFetchAt] = useState<number | null>(null)
   const abortControllerRef = useRef<AbortController | null>(null)
+  const hasCompletedInitialFetchRef = useRef(false)
 
   const fetchData = useCallback(async () => {
     abortControllerRef.current?.abort()
     const abortController = new AbortController()
     abortControllerRef.current = abortController
 
-    if (data === null) {
+    if (!hasCompletedInitialFetchRef.current) {
       setIsLoading(true)
     }
 
@@ -73,10 +74,11 @@ export const useLiveStats = (
       )
     } finally {
       if (!abortController.signal.aborted) {
+        hasCompletedInitialFetchRef.current = true
         setIsLoading(false)
       }
     }
-  }, [data, historyMinutes])
+  }, [historyMinutes])
 
   useEffect(() => {
     void fetchData()

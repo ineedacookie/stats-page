@@ -78,6 +78,15 @@ body {
   }
 }
 
+@keyframes carousel-progress-fill {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
 .rotate-slide-in-right {
   animation: rotate-slide-in-right 320ms cubic-bezier(0.22, 1, 0.36, 1);
   will-change: transform, opacity;
@@ -93,10 +102,23 @@ body {
   will-change: transform, opacity;
 }
 
+.carousel-progress-fill {
+  animation-name: carousel-progress-fill;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+  transform-origin: left center;
+  will-change: transform;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .rotate-slide-in-right,
   .rotate-slide-in-left,
-  .correlation-slide-in-right {
+  .correlation-slide-in-right,
+  .carousel-progress-fill {
     animation: none;
+  }
+
+  .carousel-progress-fill {
+    transform: scaleX(1);
   }
 }

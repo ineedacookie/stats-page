@@ -50,19 +50,7 @@ export class PollerService {
 
     await Promise.allSettled(
       this.sources.map(async (source) => {
-        await this.runWithTimeout(
-          async () => {
-            await source.scraper.close()
-          },
-          SCRAPER_CLOSE_TIMEOUT_MS,
-          `Scraper close timed out after ${SCRAPER_CLOSE_TIMEOUT_MS}ms`,
-        ).catch((error) => {
-          const message =
-            error instanceof Error ? error.message : 'Unknown scraper close failure'
-          console.warn(
-            `[poller] scraper shutdown fallback for ${source.label}: ${message}`,
-          )
-        })
+        await this.closeSourceScraper(source, 'shutdown')
       }),
     )
   }
@@ -91,11 +79,30 @@ export class PollerService {
             `[poller] scrape failed for ${source.label} (${source.sourceUrl})`,
             error,
           )
+        } finally {
+          await this.closeSourceScraper(source, 'poll cycle')
         }
       }
     } finally {
       this.pollInFlight = false
     }
+  }
+
+  private async closeSourceScraper(
+    source: StatsSourceRunner,
+    reason: string,
+  ): Promise<void> {
+    await this.runWithTimeout(
+      async () => {
+        await source.scraper.close()
+      },
+      SCRAPER_CLOSE_TIMEOUT_MS,
+      `Scraper close timed out after ${SCRAPER_CLOSE_TIMEOUT_MS}ms`,
+    ).catch((error) => {
+      const message =
+        error instanceof Error ? error.message : 'Unknown scraper close failure'
+      console.warn(`[poller] scraper close fallback for ${source.label} (${reason}): ${message}`)
+    })
   }
 
   private async runWithTimeout<T>(

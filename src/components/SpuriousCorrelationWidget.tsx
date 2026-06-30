@@ -1,30 +1,19 @@
-import { SPURIOUS_WIDGET_FALLBACK_CYCLE_MS } from '../config/sections'
 import type { SpuriousCorrelationWidgetPayload } from '../types/stats'
 
 interface SpuriousCorrelationWidgetProps {
   data: SpuriousCorrelationWidgetPayload | null
   className?: string
-  rotationAnchorMs: number
-  clockMs: number
-  rotationMs?: number
+  rotationStep: number
 }
 
 export const SpuriousCorrelationWidget = ({
   data,
   className,
-  rotationAnchorMs,
-  clockMs,
-  rotationMs,
+  rotationStep,
 }: SpuriousCorrelationWidgetProps) => {
   const correlations = data?.items ?? []
-  const cycleIntervalMs =
-    rotationMs ?? data?.cycleIntervalMs ?? SPURIOUS_WIDGET_FALLBACK_CYCLE_MS
-
-  const rotationElapsedMs = Math.max(0, clockMs - rotationAnchorMs)
   const activeIndex =
-    correlations.length === 0
-      ? 0
-      : Math.floor(rotationElapsedMs / cycleIntervalMs) % correlations.length
+    correlations.length === 0 ? 0 : rotationStep % correlations.length
 
   const activeCorrelation = correlations[activeIndex] ?? null
 

@@ -6,15 +6,13 @@ import { SectionPanel } from './SectionPanel'
 interface SectionCarouselProps {
   sections: DashboardSection[]
   rotationMs: number
-  rotationAnchorMs: number
-  clockMs: number
+  rotationStep: number
 }
 
 export const SectionCarousel = ({
   sections,
   rotationMs,
-  rotationAnchorMs,
-  clockMs,
+  rotationStep,
 }: SectionCarouselProps) => {
   const [selectedMetricBySectionId, setSelectedMetricBySectionId] = useState<
     Record<string, string>
@@ -37,23 +35,13 @@ export const SectionCarousel = ({
     })
   }, [sections])
 
-  const rotationElapsedMs = Math.max(0, clockMs - rotationAnchorMs)
-
   const activeIndex = useMemo(() => {
     if (sections.length === 0) {
       return 0
     }
 
-    return Math.floor(rotationElapsedMs / rotationMs) % sections.length
-  }, [rotationElapsedMs, rotationMs, sections.length])
-
-  const progressRatio = useMemo(() => {
-    if (sections.length <= 1) {
-      return 0
-    }
-
-    return (rotationElapsedMs % rotationMs) / rotationMs
-  }, [rotationElapsedMs, rotationMs, sections.length])
+    return rotationStep % sections.length
+  }, [rotationStep, sections.length])
 
   const activeSection = useMemo(
     () => sections[activeIndex] ?? null,
@@ -80,13 +68,21 @@ export const SectionCarousel = ({
   }
 
   const selectedMetricId = selectedMetricBySectionId[activeSection.id] ?? null
+  const shouldAnimateProgress = sections.length > 1
 
   return (
     <div className="flex h-full min-h-0 flex-col rounded-2xl">
       <div className="mb-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-800/80">
         <div
-          className="h-full w-full origin-left rounded-full bg-gradient-to-r from-sky-400 via-fuchsia-400 to-emerald-400 will-change-transform"
-          style={{ transform: `scaleX(${progressRatio})` }}
+          key={`${activeSection.id}-${rotationStep}`}
+          className={`h-full w-full rounded-full bg-gradient-to-r from-sky-400 via-fuchsia-400 to-emerald-400 ${
+            shouldAnimateProgress ? 'carousel-progress-fill' : ''
+          }`}
+          style={
+            shouldAnimateProgress
+              ? { animationDuration: `${rotationMs}ms` }
+              : { transform: 'scaleX(1)' }
+          }
         />
       </div>
 
