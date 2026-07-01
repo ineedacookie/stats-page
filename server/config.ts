@@ -74,6 +74,14 @@ export const SERVER_CONFIG = {
     process.env.FRONTEND_POLL_INTERVAL_MS,
     30_000,
   ),
+  camLivenessTtlMs: parsePositiveNumberEnv(
+    process.env.CAM_LIVENESS_TTL_MS,
+    60_000,
+  ),
+  camLivenessTimeoutMs: parsePositiveNumberEnv(
+    process.env.CAM_LIVENESS_TIMEOUT_MS,
+    8_000,
+  ),
   internetLiveStatsUrl:
     process.env.ILS_SOURCE_URL ?? 'https://www.internetlivestats.com/',
   worldometersUrl: process.env.WORLDMETERS_SOURCE_URL ?? 'https://www.worldometers.info/',

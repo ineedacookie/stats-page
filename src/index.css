@@ -87,6 +87,15 @@ body {
   }
 }
 
+@keyframes scene-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 .rotate-slide-in-right {
   animation: rotate-slide-in-right 320ms cubic-bezier(0.22, 1, 0.36, 1);
   will-change: transform, opacity;
@@ -110,11 +119,17 @@ body {
   will-change: transform;
 }
 
+.scene-fade-in {
+  animation: scene-fade-in 600ms ease-out;
+  will-change: opacity;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .rotate-slide-in-right,
   .rotate-slide-in-left,
   .correlation-slide-in-right,
-  .carousel-progress-fill {
+  .carousel-progress-fill,
+  .scene-fade-in {
     animation: none;
   }
 

@@ -4,12 +4,14 @@ import cors from 'cors'
 import express from 'express'
 
 import { SERVER_CONFIG } from './config.js'
+import { createCamsRouter } from './routes/cams.js'
 import { createStatsRouter } from './routes/stats.js'
 import { BrowserScrapeRuntime } from './scraper/browserScrapeRuntime.js'
 import { PoliteHtmlClient } from './scraper/politeHtmlClient.js'
 import { SpuriousCorrelationsScraper } from './scraper/spuriousCorrelationsScraper.js'
 import { WorldometersScraper } from './scraper/worldometersScraper.js'
 import { HistoryStore } from './services/historyStore.js'
+import { LiveCamService } from './services/liveCamService.js'
 import { PollerService } from './services/poller.js'
 import { SpuriousCorrelationService } from './services/spuriousCorrelationService.js'
 import type { StatsSourceDefinition } from './types.js'
@@ -120,10 +122,16 @@ const createApp = async (): Promise<{
     historyStore,
   })
 
+  const liveCamService = new LiveCamService({
+    livenessTtlMs: SERVER_CONFIG.camLivenessTtlMs,
+    livenessTimeoutMs: SERVER_CONFIG.camLivenessTimeoutMs,
+  })
+
   const app = express()
   app.use(cors())
   app.use(express.json())
   app.use('/api', createStatsRouter(historyStore, spuriousCorrelationService))
+  app.use('/api', createCamsRouter(liveCamService))
   app.get('/', (_request, response) => {
     response.json({
       name: 'multi-source-live-stats-proxy',
