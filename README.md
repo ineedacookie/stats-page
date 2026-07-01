@@ -5,12 +5,13 @@ Fullscreen local dashboard that runs as a scene rotator:
 - Then the stats scene takes over for 3 minutes: Worldometers live counters + Tyler Vigen spurious-correlation graphics
 - Then a new random animal cam, and the loop repeats
 
-Live cams are all ad-free, from three sources:
+Live cams are all ad-free, from four sources:
 - **explore.org** — the nonprofit live-nature-cam network (includes Katmai National Park's Brooks Falls bears). Non-monetized YouTube live streams.
 - **U.S. Fish & Wildlife Service** — a federal agency wildlife cam (e.g. a bald eagle nest). Non-monetized YouTube.
 - **San Diego Zoo** — direct HLS from the zoo's own CDN.
+- **Floating Green (Coeur d'Alene)** — Verkada-hosted golf-course live cam, resolved/proxied server-side.
 
-YouTube cams play through YouTube's own IFrame player (adaptive HD, rock-solid); the server resolves each channel's current live video at request time via its stable `/live` URL, so video IDs never need maintaining. San Diego Zoo cams play via `hls.js` straight from the zoo's CDN. Idle/offline cams are skipped automatically.
+YouTube cams play through YouTube's own IFrame player (adaptive HD, rock-solid); the server resolves each channel's current live video at request time via its stable `/live` URL, so video IDs never need maintaining. San Diego Zoo cams play via `hls.js` straight from the zoo's CDN. The Floating Green Verkada cam is resolved to a short-lived HLS URL server-side and played through an API proxy because direct embedding is domain-restricted. Idle/offline cams are skipped automatically.
 
 ## Fast Setup (new computer)
 
@@ -106,7 +107,7 @@ All values are optional:
 ## Notes
 
 - The screen is a scene rotator: an ad-free live animal cam plays fullscreen for 20 minutes, then the stats + spurious-correlation view for 3 minutes, then a new random cam.
-- Edit the curated cam list in `server/config/liveCams.ts`. Each entry is either `kind: 'youtube'` (a channel `handle`, resolved to its current live video) or `kind: 'hls'` (a direct `.m3u8` URL). Scene durations live in `src/config/scenes.ts` (`CAM_SCENE_MS`, `STATS_SCENE_MS`).
+- Edit the curated cam list in `server/config/liveCams.ts`. Each entry is `kind: 'youtube'` (channel `handle`), `kind: 'hls'` (direct `.m3u8`), or `kind: 'verkada'` (`authUrl` resolved/proxied server-side). Scene durations live in `src/config/scenes.ts` (`CAM_SCENE_MS`, `STATS_SCENE_MS`).
 - YouTube cams resolve automatically from each channel's `/live` page (no video-ID maintenance). To add one, add its channel handle (e.g. `youtube.com/@ExploreOceans`). San Diego Zoo channel slugs drift occasionally; if a cam stops loading, open its page under `https://zoo.sandiegozoo.org/cams/*` and update the `channel` in the `camzone(...)` URL.
 - Memory: the cam player is built imperatively and fully destroyed on every cam change and whenever the stats scene takes over (the cam stage unmounts), so no YouTube/hls.js instances accumulate over long kiosk runs. Server-side caches (resolved cams, recent-ids) are bounded by the cam count.
 - InternetLiveStats ingestion is removed from active dashboard sources.

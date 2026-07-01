@@ -21,6 +21,7 @@ interface LiveCamServiceOptions {
 }
 
 const MAX_RECENT = 8
+const VERKADA_HLS_HOST = 'vstream.command.verkada.com'
 
 // A desktop browser UA is required — YouTube serves a stripped page (without the
 // canonical live video) to unknown/bot agents.
@@ -82,6 +83,20 @@ export class LiveCamService {
     return null
   }
 
+  // Resolve and return one specific cam id (used for temporary testing pins).
+  public async pickById(camId: string): Promise<CamSelection | null> {
+    const cam = this.cams.find((entry) => entry.id === camId)
+    if (!cam) {
+      return null
+    }
+
+    const selection = await this.resolve(cam)
+    if (selection) {
+      this.markRecent(cam.id)
+    }
+    return selection
+  }
+
   // Resolve a cam to a playable selection, caching hits and misses for a short
   // window so rapid scene cycles don't re-probe every source.
   private async resolve(cam: LiveCamDefinition): Promise<CamSelection | null> {
@@ -123,6 +138,23 @@ export class LiveCamService {
           hlsUrl: cam.hlsUrl,
         }
       }
+      case 'verkada': {
+        const manifestUrl = await this.fetchVerkadaManifest(cam.authUrl)
+        if (!manifestUrl) {
+          return null
+        }
+        const ok = await this.checkManifest(manifestUrl)
+        if (!ok) {
+          return null
+        }
+        return {
+          id: cam.id,
+          title: cam.title,
+          location: cam.location,
+          kind: 'hls',
+          hlsUrl: `/api/cams/proxy/master.m3u8?src=${encodeURIComponent(manifestUrl)}`,
+        }
+      }
       default: {
         const exhaustive: never = cam
         return exhaustive
@@ -159,6 +191,71 @@ export class LiveCamService {
   private async checkManifest(url: string): Promise<boolean> {
     const body = await this.fetchText(url, {})
     return body !== null && body.includes('#EXTM3U')
+  }
+
+  // Resolve a Verkada embed-auth URL into the underlying short-lived HLS
+  // manifest URL. We extract it from the redirect hash payload.
+  private async fetchVerkadaManifest(authUrl: string): Promise<string | null> {
+    const controller = new AbortController()
+    const timer = setTimeout(() => {
+      controller.abort()
+    }, this.livenessTimeoutMs)
+    timer.unref()
+
+    try {
+      const response = await fetch(authUrl, {
+        signal: controller.signal,
+        redirect: 'manual',
+        headers: { 'user-agent': RESOLVE_UA },
+      })
+      if (response.status < 300 || response.status >= 400) {
+        return null
+      }
+
+      const location = response.headers.get('location')
+      if (!location) {
+        return null
+      }
+
+      const parsed = new URL(location)
+      const hashPayload = parsed.hash.startsWith('#')
+        ? parsed.hash.slice(1)
+        : parsed.hash
+      if (!hashPayload) {
+        return null
+      }
+
+      const payload = JSON.parse(
+        decodeURIComponent(hashPayload),
+      ) as {
+        urlHD?: string
+        urlSD?: string
+      }
+      const manifestUrl = payload.urlHD ?? payload.urlSD
+      if (!manifestUrl) {
+        return null
+      }
+
+      let manifestParsed: URL
+      try {
+        manifestParsed = new URL(manifestUrl)
+      } catch {
+        return null
+      }
+      if (
+        manifestParsed.hostname !== VERKADA_HLS_HOST ||
+        (manifestParsed.protocol !== 'https:' &&
+          manifestParsed.protocol !== 'http:')
+      ) {
+        return null
+      }
+
+      return manifestParsed.toString()
+    } catch {
+      return null
+    } finally {
+      clearTimeout(timer)
+    }
   }
 
   private async fetchText(

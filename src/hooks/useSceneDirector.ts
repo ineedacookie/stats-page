@@ -14,11 +14,15 @@ interface SceneDirectorResult {
 
 const fetchNextCam = async (
   excludeId: string | null,
+  forceId: string | null,
   signal: AbortSignal,
 ): Promise<CamSelection | null> => {
   const params = new URLSearchParams()
   if (excludeId) {
     params.set('exclude', excludeId)
+  }
+  if (forceId) {
+    params.set('force', forceId)
   }
   const query = params.toString()
 
@@ -41,6 +45,13 @@ export const useSceneDirector = (): SceneDirectorResult => {
   const [cam, setCam] = useState<CamSelection | null>(null)
   const [isCamLoading, setIsCamLoading] = useState(true)
   const [camRequestId, setCamRequestId] = useState(0)
+  const [forcedCamId] = useState<string | null>(() => {
+    if (typeof window === 'undefined') {
+      return null
+    }
+    const value = new URLSearchParams(window.location.search).get('cam')
+    return value && value.length > 0 ? value : null
+  })
   const lastCamIdRef = useRef<string | null>(null)
 
   const requestNextCam = useCallback(() => {
@@ -60,6 +71,7 @@ export const useSceneDirector = (): SceneDirectorResult => {
     void (async () => {
       const selection = await fetchNextCam(
         lastCamIdRef.current,
+        forcedCamId,
         abortController.signal,
       ).catch(() => null)
 
@@ -81,7 +93,7 @@ export const useSceneDirector = (): SceneDirectorResult => {
       cancelled = true
       abortController.abort()
     }
-  }, [camRequestId])
+  }, [camRequestId, forcedCamId])
 
   // Cam scene duration: starts counting once a cam is actually on screen.
   useEffect(() => {

@@ -18,6 +18,12 @@ export type LiveCamDefinition =
       kind: 'hls'
       hlsUrl: string
     })
+  | (LiveCamBase & {
+      kind: 'verkada'
+      // Verkada auth/embed URL published by the source site. We resolve this to
+      // a short-lived HLS manifest token server-side and proxy playback.
+      authUrl: string
+    })
 
 // San Diego Zoo publishes each cam as a direct HLS stream on its public CDN
 // (open CORS). Channels drift occasionally (e.g. `zssd-panda` -> `zssd-panda2024`);
@@ -32,6 +38,8 @@ const camzone = (channel: string): string =>
 //   National Park's Brooks Falls bear cams.)
 // - U.S. Fish & Wildlife Service: a federal agency (ad-free) live wildlife cam.
 // - San Diego Zoo: direct HLS from the zoo's own CDN.
+// - Coeur d'Alene Floating Green: Verkada-hosted live cam resolved/proxied
+//   server-side because embed-domain restrictions block direct embedding here.
 export const LIVE_CAMS: LiveCamDefinition[] = [
   // explore.org (YouTube)
   { id: 'explore-nature', kind: 'youtube', handle: 'ExploreLiveNatureCams', title: 'Featured Nature Cam', location: 'explore.org' },
@@ -55,6 +63,16 @@ export const LIVE_CAMS: LiveCamDefinition[] = [
 
   // U.S. Fish & Wildlife Service (YouTube, federal / ad-free)
   { id: 'usfws-eagles', kind: 'youtube', handle: 'USFWS', title: 'Bald Eagle Nest Cam', location: 'U.S. Fish & Wildlife Service' },
+
+  // Coeur d'Alene Resort Golf Course (Verkada embed)
+  {
+    id: 'floating-green-course',
+    kind: 'verkada',
+    title: 'Floating Green 14th Hole',
+    location: 'Coeur d’Alene Resort Golf Course',
+    authUrl:
+      'https://vauth.command.verkada.com/__v/the-hagadone-corporation/embed/html/8221eb92-97ac-4ab8-900e-7f0e21c83474/?widescreen=1',
+  },
 
   // San Diego Zoo (direct HLS)
   { id: 'sdz-panda', kind: 'hls', title: 'Giant Pandas', location: 'San Diego Zoo', hlsUrl: camzone('zssd-panda2024') },
