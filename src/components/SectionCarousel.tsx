@@ -20,15 +20,28 @@ export const SectionCarousel = ({
 
   useEffect(() => {
     setSelectedMetricBySectionId((previous) => {
-      const next = { ...previous }
+      const next: Record<string, string> = {}
       for (const section of sections) {
         if (section.metrics.length === 0) {
           continue
         }
 
-        if (!next[section.id]) {
-          next[section.id] = section.metrics[0].id
-        }
+        const previousMetricId = previous[section.id]
+        const previousMetricStillExists = section.metrics.some(
+          (metric) => metric.id === previousMetricId,
+        )
+        next[section.id] = previousMetricStillExists && previousMetricId
+          ? previousMetricId
+          : section.metrics[0].id
+      }
+
+      const previousKeys = Object.keys(previous)
+      const nextKeys = Object.keys(next)
+      if (
+        previousKeys.length === nextKeys.length &&
+        nextKeys.every((sectionId) => previous[sectionId] === next[sectionId])
+      ) {
+        return previous
       }
 
       return next

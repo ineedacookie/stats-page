@@ -1,4 +1,6 @@
+import { existsSync } from 'node:fs'
 import type { Server } from 'node:http'
+import { fileURLToPath } from 'node:url'
 
 import cors from 'cors'
 import express from 'express'
@@ -18,6 +20,11 @@ import type { StatsSourceDefinition } from './types.js'
 
 const SHUTDOWN_STEP_TIMEOUT_MS = 4_000
 const SHUTDOWN_HARD_TIMEOUT_MS = 6_000
+const CLIENT_DIST_URL = new URL('../dist/', import.meta.url)
+const CLIENT_DIST_PATH = fileURLToPath(CLIENT_DIST_URL)
+const CLIENT_INDEX_PATH = fileURLToPath(
+  new URL('index.html', CLIENT_DIST_URL),
+)
 
 const runWithTimeout = async <T>(
   operation: () => Promise<T>,
@@ -132,7 +139,7 @@ const createApp = async (): Promise<{
   app.use(express.json())
   app.use('/api', createStatsRouter(historyStore, spuriousCorrelationService))
   app.use('/api', createCamsRouter(liveCamService))
-  app.get('/', (_request, response) => {
+  app.get('/api/info', (_request, response) => {
     response.json({
       name: 'multi-source-live-stats-proxy',
       statsIntervalMs: SERVER_CONFIG.statsScrapeIntervalMs,
@@ -140,6 +147,17 @@ const createApp = async (): Promise<{
       pagesPerRun: SERVER_CONFIG.spuriousPagesPerRun,
     })
   })
+
+  if (existsSync(CLIENT_INDEX_PATH)) {
+    app.use(express.static(CLIENT_DIST_PATH))
+    app.get(/^(?!\/api(?:\/|$)).*/, (_request, response) => {
+      response.sendFile(CLIENT_INDEX_PATH)
+    })
+  } else {
+    app.get('/', (_request, response) => {
+      response.redirect('/api/info')
+    })
+  }
 
   return { app, poller, spuriousCorrelationService }
 }

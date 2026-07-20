@@ -26,7 +26,7 @@ const clampHistoryMinutes = (value: number | null): number | null => {
   }
 
   if (value <= 0) {
-    return null
+    return 0
   }
 
   return Math.min(Math.floor(value), 180)
@@ -152,7 +152,11 @@ export class HistoryStore {
     const now = Date.now()
     const historyMinutes = clampHistoryMinutes(historyMinutesRaw)
     const historyCutoff =
-      historyMinutes === null ? null : now - historyMinutes * 60 * 1000
+      historyMinutes === null
+        ? null
+        : historyMinutes === 0
+          ? Number.POSITIVE_INFINITY
+          : now - historyMinutes * 60 * 1000
 
     this.refreshSourceStaleness()
 

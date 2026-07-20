@@ -192,8 +192,17 @@ export class SpuriousCorrelationService {
         await this.saveToDisk()
       }
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      const errorCode = (error as NodeJS.ErrnoException).code
+      if (errorCode !== 'ENOENT' && !(error instanceof SyntaxError)) {
         throw error
+      }
+
+      if (error instanceof SyntaxError) {
+        const corruptFilePath = `${this.storageFilePath}.corrupt-${Date.now()}`
+        await fs.rename(this.storageFilePath, corruptFilePath)
+        console.warn(
+          `[spurious] moved corrupt store to ${corruptFilePath}; starting with an empty store`,
+        )
       }
 
       this.storeFile = { ...DEFAULT_STORE_FILE }

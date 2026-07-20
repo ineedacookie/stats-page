@@ -98,17 +98,14 @@ body {
 
 .rotate-slide-in-right {
   animation: rotate-slide-in-right 320ms cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: transform, opacity;
 }
 
 .rotate-slide-in-left {
   animation: rotate-slide-in-left 320ms cubic-bezier(0.22, 1, 0.36, 1);
-  will-change: transform, opacity;
 }
 
 .correlation-slide-in-right {
   animation: correlation-slide-in-right 760ms cubic-bezier(0.16, 1, 0.3, 1);
-  will-change: transform, opacity;
 }
 
 .carousel-progress-fill {
@@ -116,12 +113,10 @@ body {
   animation-timing-function: linear;
   animation-fill-mode: forwards;
   transform-origin: left center;
-  will-change: transform;
 }
 
 .scene-fade-in {
   animation: scene-fade-in 600ms ease-out;
-  will-change: opacity;
 }
 
 @media (prefers-reduced-motion: reduce) {

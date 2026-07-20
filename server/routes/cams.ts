@@ -1,11 +1,17 @@
 import { Readable } from 'node:stream'
 
-import { Router } from 'express'
+import {
+  Router,
+  type Request as ExpressRequest,
+  type Response as ExpressResponse,
+} from 'express'
 
 import { LiveCamService } from '../services/liveCamService.js'
 
 const HLS_CONTENT_TYPE = 'application/vnd.apple.mpegurl'
 const ALLOWED_PROXY_HOSTS = ['vstream.command.verkada.com']
+const PLAYLIST_FETCH_TIMEOUT_MS = 15_000
+const SEGMENT_FETCH_TIMEOUT_MS = 30_000
 
 const readQueryString = (value: unknown): string | null =>
   typeof value === 'string' && value.length > 0 ? value : null
@@ -32,6 +38,35 @@ const toMediaProxyPath = (absoluteUrl: string): string =>
 
 const toSegmentProxyPath = (absoluteUrl: string): string =>
   `/api/cams/proxy/segment?src=${encodeURIComponent(absoluteUrl)}`
+
+interface AbortScope {
+  signal: AbortSignal
+  cleanup: () => void
+}
+
+const createAbortScope = (
+  request: ExpressRequest,
+  response: ExpressResponse,
+  timeoutMs: number,
+): AbortScope => {
+  const controller = new AbortController()
+  const abort = (): void => {
+    controller.abort()
+  }
+  const timeout = setTimeout(abort, timeoutMs)
+  timeout.unref()
+  request.once('aborted', abort)
+  response.once('close', abort)
+
+  return {
+    signal: controller.signal,
+    cleanup: () => {
+      clearTimeout(timeout)
+      request.off('aborted', abort)
+      response.off('close', abort)
+    },
+  }
+}
 
 // Rewrite every URL in an HLS playlist so it is fetched back through this API.
 // Needed for sources that do not allow cross-origin browser playback.
@@ -66,9 +101,10 @@ const rewritePlaylist = (playlist: string, baseUrl: string): string => {
 
 const fetchPlaylist = async (
   url: string,
+  signal: AbortSignal,
 ): Promise<{ ok: boolean; body: string }> => {
   try {
-    const response = await fetch(url)
+    const response = await fetch(url, { signal })
     if (!response.ok) {
       return { ok: false, body: '' }
     }
@@ -86,15 +122,18 @@ export const createCamsRouter = (camService: LiveCamService): Router => {
     const excludeId = readQueryString(request.query.exclude)
     const forceId = readQueryString(request.query.force)
 
-    let selection = forceId ? await camService.pickById(forceId) : null
-    if (!selection) {
-      selection = await camService.pickNext({ excludeId })
-    }
+    const selection = forceId
+      ? await camService.pickById(forceId)
+      : await camService.pickNext({ excludeId })
 
     if (!selection) {
       response
         .status(503)
-        .json({ error: 'No live animal cams are available right now.' })
+        .json({
+          error: forceId
+            ? `The requested cam "${forceId}" is not available.`
+            : 'No live animal cams are available right now.',
+        })
       return
     }
 
@@ -108,7 +147,13 @@ export const createCamsRouter = (camService: LiveCamService): Router => {
       return
     }
 
-    const fetched = await fetchPlaylist(src)
+    const abortScope = createAbortScope(
+      request,
+      response,
+      PLAYLIST_FETCH_TIMEOUT_MS,
+    )
+    const fetched = await fetchPlaylist(src, abortScope.signal)
+    abortScope.cleanup()
     if (!fetched.ok) {
       response.status(502).json({ error: 'Failed to load cam manifest.' })
       return
@@ -125,7 +170,13 @@ export const createCamsRouter = (camService: LiveCamService): Router => {
       return
     }
 
-    const fetched = await fetchPlaylist(src)
+    const abortScope = createAbortScope(
+      request,
+      response,
+      PLAYLIST_FETCH_TIMEOUT_MS,
+    )
+    const fetched = await fetchPlaylist(src, abortScope.signal)
+    abortScope.cleanup()
     if (!fetched.ok) {
       response.status(502).json({ error: 'Failed to load media playlist.' })
       return
@@ -142,15 +193,23 @@ export const createCamsRouter = (camService: LiveCamService): Router => {
       return
     }
 
+    const abortScope = createAbortScope(
+      request,
+      response,
+      SEGMENT_FETCH_TIMEOUT_MS,
+    )
     let upstream: Response
     try {
-      upstream = await fetch(src)
+      upstream = await fetch(src, { signal: abortScope.signal })
     } catch {
+      abortScope.cleanup()
       response.status(502).end()
       return
     }
 
     if (!upstream.ok || !upstream.body) {
+      abortScope.cleanup()
+      void upstream.body?.cancel().catch(() => undefined)
       response.status(502).end()
       return
     }
@@ -165,7 +224,44 @@ export const createCamsRouter = (camService: LiveCamService): Router => {
     }
     response.setHeader('Cache-Control', 'no-store')
 
-    Readable.fromWeb(upstream.body).pipe(response)
+    const readable = Readable.fromWeb(upstream.body)
+    let settled = false
+    const cleanup = (): void => {
+      if (settled) {
+        return
+      }
+      settled = true
+      abortScope.cleanup()
+      response.off('close', handleResponseClose)
+      response.off('error', handleResponseError)
+      response.off('finish', cleanup)
+      readable.off('error', handleReadableError)
+    }
+    const handleResponseClose = (): void => {
+      if (!response.writableEnded) {
+        readable.destroy()
+      }
+      cleanup()
+    }
+    const handleResponseError = (error: Error): void => {
+      readable.destroy(error)
+      cleanup()
+    }
+    const handleReadableError = (): void => {
+      if (!response.headersSent) {
+        response.statusCode = 502
+      }
+      if (!response.writableEnded) {
+        response.end()
+      }
+      cleanup()
+    }
+
+    response.once('close', handleResponseClose)
+    response.once('error', handleResponseError)
+    response.once('finish', cleanup)
+    readable.once('error', handleReadableError)
+    readable.pipe(response)
   })
 
   return router

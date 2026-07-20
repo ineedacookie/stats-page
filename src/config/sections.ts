@@ -1,5 +1,9 @@
 export const SECTION_ROTATION_MS = 45_000
-export const DEFAULT_HISTORY_MINUTES = 24 * 7
+// The current kiosk layout does not render metric history. Keep it out of the
+// polling payload so old samples do not create avoidable parse/GC pressure.
+export const DEFAULT_HISTORY_MINUTES = 0
+// A two-hour kiosk session shows at most about 24 correlations before renewal.
+export const DEFAULT_SPURIOUS_LIMIT = 24
 export const METRIC_POLL_INTERVAL_MS = 30_000
 export const SPURIOUS_WIDGET_FALLBACK_CYCLE_MS = 45_000
 

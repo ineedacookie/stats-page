@@ -135,11 +135,7 @@ export class BrowserScrapeRuntime {
   private async getOrLaunchBrowser(): Promise<Browser> {
     if (this.browserPromise === null) {
       let launchPromise: Promise<Browser>
-      launchPromise = puppeteer
-        .launch({
-          headless: true,
-          timeout: this.launchTimeoutMs,
-        })
+      launchPromise = this.launchBrowser()
         .then((browser) => {
           browser.once('disconnected', () => {
             if (this.browserPromise === launchPromise) {
@@ -164,6 +160,30 @@ export class BrowserScrapeRuntime {
     }
 
     return browser
+  }
+
+  private async launchBrowser(): Promise<Browser> {
+    const launchOptions = {
+      headless: true,
+      timeout: this.launchTimeoutMs,
+    } as const
+
+    try {
+      return await puppeteer.launch(launchOptions)
+    } catch (error) {
+      const message = this.toErrorMessage(error)
+      if (!message.includes('Could not find Chrome')) {
+        throw error
+      }
+
+      console.warn(
+        '[scraper] Puppeteer-managed Chrome is unavailable; using the system Chrome installation.',
+      )
+      return puppeteer.launch({
+        ...launchOptions,
+        channel: 'chrome',
+      })
+    }
   }
 
   private async waitForCountersToPopulate(page: Page): Promise<void> {

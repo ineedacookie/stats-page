@@ -2,13 +2,16 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import {
   DEFAULT_HISTORY_MINUTES,
+  DEFAULT_SPURIOUS_LIMIT,
   METRIC_POLL_INTERVAL_MS,
 } from '../config/sections'
 import type { DashboardPayload } from '../types/stats'
 
 interface UseLiveStatsOptions {
+  enabled?: boolean
   historyMinutes?: number
   pollIntervalMs?: number
+  spuriousLimit?: number
 }
 
 interface UseLiveStatsResult {
@@ -19,9 +22,13 @@ interface UseLiveStatsResult {
   refetch: () => Promise<void>
 }
 
-const createStatsUrl = (historyMinutes: number): string => {
+const createStatsUrl = (
+  historyMinutes: number,
+  spuriousLimit: number,
+): string => {
   const params = new URLSearchParams({
     historyMinutes: String(historyMinutes),
+    spuriousLimit: String(spuriousLimit),
   })
 
   return `/api/stats?${params.toString()}`
@@ -30,8 +37,10 @@ const createStatsUrl = (historyMinutes: number): string => {
 export const useLiveStats = (
   options: UseLiveStatsOptions = {},
 ): UseLiveStatsResult => {
+  const enabled = options.enabled ?? true
   const historyMinutes = options.historyMinutes ?? DEFAULT_HISTORY_MINUTES
   const pollIntervalMs = options.pollIntervalMs ?? METRIC_POLL_INTERVAL_MS
+  const spuriousLimit = options.spuriousLimit ?? DEFAULT_SPURIOUS_LIMIT
 
   const [data, setData] = useState<DashboardPayload | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -50,9 +59,12 @@ export const useLiveStats = (
     }
 
     try {
-      const response = await fetch(createStatsUrl(historyMinutes), {
-        signal: abortController.signal,
-      })
+      const response = await fetch(
+        createStatsUrl(historyMinutes, spuriousLimit),
+        {
+          signal: abortController.signal,
+        },
+      )
 
       if (!response.ok) {
         throw new Error(`Stats request failed (${response.status})`)
@@ -78,9 +90,14 @@ export const useLiveStats = (
         setIsLoading(false)
       }
     }
-  }, [historyMinutes])
+  }, [historyMinutes, spuriousLimit])
 
   useEffect(() => {
+    if (!enabled) {
+      abortControllerRef.current?.abort()
+      return
+    }
+
     void fetchData()
 
     const timer = setInterval(() => {
@@ -91,7 +108,7 @@ export const useLiveStats = (
       clearInterval(timer)
       abortControllerRef.current?.abort()
     }
-  }, [fetchData, pollIntervalMs])
+  }, [enabled, fetchData, pollIntervalMs])
 
   return {
     data,

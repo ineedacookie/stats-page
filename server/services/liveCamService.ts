@@ -21,6 +21,7 @@ interface LiveCamServiceOptions {
 }
 
 const MAX_RECENT = 8
+const MAX_RANDOM_RESOLUTION_ATTEMPTS = 2
 const VERKADA_HLS_HOST = 'vstream.command.verkada.com'
 
 // A desktop browser UA is required — YouTube serves a stripped page (without the
@@ -54,6 +55,10 @@ export class LiveCamService {
   private readonly livenessTimeoutMs: number
   private readonly cams: LiveCamDefinition[]
   private readonly cache = new Map<string, CacheEntry>()
+  private readonly pendingResolutions = new Map<
+    string,
+    Promise<CamSelection | null>
+  >()
   private recentIds: string[] = []
 
   public constructor(options: LiveCamServiceOptions) {
@@ -72,10 +77,30 @@ export class LiveCamService {
     const candidates = pool.length > 0 ? pool : this.cams
     const ordered = this.orderByFreshness(this.shuffle(candidates))
 
-    for (const cam of ordered) {
+    const firstCandidates = ordered.slice(
+      0,
+      MAX_RANDOM_RESOLUTION_ATTEMPTS,
+    )
+    const attemptedIds = new Set<string>()
+    for (const cam of firstCandidates) {
+      attemptedIds.add(cam.id)
       const selection = await this.resolve(cam)
       if (selection) {
         this.markRecent(cam.id)
+        return selection
+      }
+    }
+
+    // Fixed YouTube broadcasts resolve without an upstream liveness request.
+    // Use one as the final fallback so a run of slow/offline network probes can
+    // never hold /cams/next open for every configured source.
+    const fallback = ordered.find(
+      (cam) => cam.kind === 'youtube-video' && !attemptedIds.has(cam.id),
+    )
+    if (fallback) {
+      const selection = await this.resolve(fallback)
+      if (selection) {
+        this.markRecent(fallback.id)
         return selection
       }
     }
@@ -105,15 +130,28 @@ export class LiveCamService {
       return cached.selection
     }
 
-    const selection = await this.compute(cam)
-    this.cache.set(cam.id, { selection, resolvedAt: Date.now() })
-    return selection
+    const pending = this.pendingResolutions.get(cam.id)
+    if (pending) {
+      return pending
+    }
+
+    const resolution = this.compute(cam)
+    this.pendingResolutions.set(cam.id, resolution)
+    try {
+      const selection = await resolution
+      this.cache.set(cam.id, { selection, resolvedAt: Date.now() })
+      return selection
+    } finally {
+      if (this.pendingResolutions.get(cam.id) === resolution) {
+        this.pendingResolutions.delete(cam.id)
+      }
+    }
   }
 
   private async compute(cam: LiveCamDefinition): Promise<CamSelection | null> {
     switch (cam.kind) {
-      case 'youtube': {
-        const live = await this.fetchYouTubeLive(cam.handle)
+      case 'youtube-channel': {
+        const live = await this.fetchYouTubeChannelLive(cam.handle)
         if (!live) {
           return null
         }
@@ -123,6 +161,15 @@ export class LiveCamService {
           location: cam.location,
           kind: 'youtube',
           youtubeId: live.videoId,
+        }
+      }
+      case 'youtube-video': {
+        return {
+          id: cam.id,
+          title: cam.title,
+          location: cam.location,
+          kind: 'youtube',
+          youtubeId: cam.videoId,
         }
       }
       case 'hls': {
@@ -162,18 +209,30 @@ export class LiveCamService {
     }
   }
 
-  private async fetchYouTubeLive(
+  private async fetchYouTubeChannelLive(
     handle: string,
   ): Promise<{ videoId: string; title: string } | null> {
-    const html = await this.fetchText(
+    return this.fetchYouTubeLivePage(
       `https://www.youtube.com/@${handle}/live?hl=en&gl=US`,
+    )
+  }
+
+  private async fetchYouTubeLivePage(
+    url: string,
+  ): Promise<{ videoId: string; title: string } | null> {
+    const html = await this.fetchText(
+      url,
       {
         'user-agent': RESOLVE_UA,
         'accept-language': 'en-US,en;q=0.9',
         cookie: 'CONSENT=YES+1; SOCS=CAI',
       },
     )
-    if (!html || !html.includes('"isLiveNow":true')) {
+    if (
+      !html ||
+      !html.includes('"isLiveNow":true') ||
+      !html.includes('"playableInEmbed":true')
+    ) {
       return null
     }
 

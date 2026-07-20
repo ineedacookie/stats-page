@@ -8,8 +8,10 @@ import { useLiveStats } from './hooks/useLiveStats'
 import { useSceneDirector } from './hooks/useSceneDirector'
 
 function App() {
-  const { data, error, isLoading } = useLiveStats()
   const { scene, cam, isCamLoading, requestNextCam } = useSceneDirector()
+  const { data, error, isLoading } = useLiveStats({
+    enabled: scene === 'stats',
+  })
   const [rotationStep, setRotationStep] = useState(0)
 
   useEffect(() => {
@@ -34,6 +36,7 @@ function App() {
             cam={cam}
             isLoading={isCamLoading}
             onError={requestNextCam}
+            onNext={requestNextCam}
           />
         </div>
       ) : (
