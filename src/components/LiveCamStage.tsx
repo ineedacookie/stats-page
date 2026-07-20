@@ -18,15 +18,18 @@ interface YouTubeStateEvent {
   target: YouTubePlayer
 }
 
+interface YouTubeErrorEvent {
+  data: number
+}
+
 interface YouTubePlayerOptions {
   videoId: string
-  host?: string
   width?: string
   height?: string
   playerVars?: Record<string, number | string>
   events?: {
     onReady?: (event: { target: YouTubePlayer }) => void
-    onError?: () => void
+    onError?: (event: YouTubeErrorEvent) => void
     onStateChange?: (event: YouTubeStateEvent) => void
   }
 }
@@ -145,11 +148,13 @@ export const LiveCamStage = ({
   const containerRef = useRef<HTMLDivElement | null>(null)
   const onErrorRef = useRef(onError)
   const [isPlayerReady, setIsPlayerReady] = useState(false)
+  const [playerNeedsAttention, setPlayerNeedsAttention] = useState(false)
   onErrorRef.current = onError
 
   useEffect(() => {
     const container = containerRef.current
     setIsPlayerReady(false)
+    setPlayerNeedsAttention(false)
     if (!cam || !container) {
       return
     }
@@ -185,7 +190,17 @@ export const LiveCamStage = ({
       fatalNotified = true
       clearRuntimeTimers()
       setIsPlayerReady(false)
+      setPlayerNeedsAttention(false)
       onErrorRef.current()
+    }
+
+    const showInteractivePlayer = (): void => {
+      if (cancelled || fatalNotified) {
+        return
+      }
+      clearRuntimeTimers()
+      setIsPlayerReady(true)
+      setPlayerNeedsAttention(true)
     }
 
     const markPlaying = (): void => {
@@ -202,6 +217,7 @@ export const LiveCamStage = ({
         window.clearTimeout(playerStartTimer)
         playerStartTimer = null
       }
+      setPlayerNeedsAttention(false)
       setIsPlayerReady(true)
     }
 
@@ -253,9 +269,6 @@ export const LiveCamStage = ({
             container.appendChild(mount)
             ytPlayer = new window.YT.Player(mount, {
               videoId: youtubeId,
-              // Use the normal origin so the embed can share the browser's
-              // YouTube session when YouTube asks it to verify traffic.
-              host: 'https://www.youtube.com',
               width: '100%',
               height: '100%',
               playerVars: {
@@ -269,16 +282,33 @@ export const LiveCamStage = ({
                 disablekb: 1,
                 iv_load_policy: 3,
                 origin: window.location.origin,
+                widget_referrer: window.location.href,
               },
               events: {
                 onReady: (event) => {
+                  if (cancelled || fatalNotified) {
+                    return
+                  }
                   const iframe = event.target.getIframe()
                   iframe.style.width = '100%'
                   iframe.style.height = '100%'
+                  iframe.referrerPolicy = 'strict-origin-when-cross-origin'
+                  setIsPlayerReady(true)
                   event.target.mute()
                   event.target.playVideo()
                 },
-                onError: notifyFatal,
+                onError: (event) => {
+                  console.warn(`[cam] YouTube player error ${event.data}`)
+                  if (
+                    event.data === 101 ||
+                    event.data === 150 ||
+                    event.data === 153
+                  ) {
+                    showInteractivePlayer()
+                    return
+                  }
+                  notifyFatal()
+                },
                 onStateChange: (event) => {
                   if (event.data === window.YT?.PlayerState.PLAYING) {
                     markPlaying()
@@ -392,7 +422,7 @@ export const LiveCamStage = ({
     <div className="relative h-full w-full overflow-hidden bg-black">
       <div
         ref={containerRef}
-        className={`pointer-events-none absolute inset-0 transition-opacity duration-500 ${
+        className={`pointer-events-auto absolute inset-0 transition-opacity duration-500 ${
           isPlayerReady ? 'opacity-100' : 'opacity-0'
         }`}
       />
@@ -402,6 +432,13 @@ export const LiveCamStage = ({
           {!cam || isLoading
             ? 'Finding a live animal cam...'
             : `Starting ${cam.title}...`}
+        </div>
+      ) : null}
+
+      {playerNeedsAttention ? (
+        <div className="pointer-events-none absolute left-1/2 top-5 z-20 -translate-x-1/2 rounded-full border border-amber-300/40 bg-black/80 px-5 py-2.5 text-center text-sm font-medium text-amber-100 backdrop-blur">
+          YouTube needs verification in this browser. Use the sign-in prompt in
+          the player, then reload this page.
         </div>
       ) : null}
 
