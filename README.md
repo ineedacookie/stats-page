@@ -5,7 +5,21 @@ Fullscreen local dashboard that runs as a scene rotator:
 - Then the stats scene takes over for 3 minutes: Worldometers live counters + Tyler Vigen spurious-correlation graphics
 - Then a new random animal cam, and the loop repeats
 
-Live cams are curated from four sources:
+Live cams are curated from these sources:
+- **Friends of Big Bear Valley** - nonprofit eagle cams (Cam 1 + Cam 2), published as non-monetized livestreams.
+- **Hyrum Dam Cam** - local live reservoir cam feed.
+- **National Park Service** - official U.S. government park livestreams.
+- **Monterey Bay Aquarium** - nonprofit aquarium livestreams and educational cams.
+- **Duluth Harbor Cam** - nonprofit-partnered city harbor cams in Duluth.
+- **Noyo Center for Marine Science** - nonprofit harbor cam from its marine field station.
+- **Coral City Camera** - nonprofit urban marine livestream in Miami.
+- **NASA** - official U.S. government live space views.
+- **NOAA Ocean Exploration** - official U.S. government deep-ocean livestreams.
+- **USGS Hawaiian Volcano Observatory** - official U.S. government volcano livestreams.
+- **Cornell Lab Bird Cams** - nonprofit ornithology and migration education cams.
+- **The Whale Museum** - nonprofit lighthouse/ocean wildlife webcam feed.
+- **UAF Fairbanks Aurora Cam** - educational aurora livestream source.
+- **Raptor Resource Project** - nonprofit raptor and eagle nest cams.
 - **explore.org** — the nonprofit live-nature-cam network (includes Katmai National Park's Brooks Falls bears). Non-monetized YouTube live streams.
 - **U.S. Fish & Wildlife Service** — a federal agency wildlife cam (e.g. a bald eagle nest). Non-monetized YouTube.
 - **San Diego Zoo** — direct HLS from the zoo's own CDN.
@@ -16,7 +30,7 @@ feeds that do not monetize their live broadcasts; commercial channels are
 excluded. YouTube ultimately controls embed delivery, so this is a best-effort
 ad-free policy rather than an absolute technical guarantee.
 
-YouTube cams play through YouTube's own IFrame player. The registry supports both specific broadcasts (including Brooks Falls, Brooks River, and Anan bear cams) and category channels whose current featured stream is resolved from a stable `/live` URL. San Diego Zoo cams play via `hls.js` straight from the zoo's CDN. The Floating Green Verkada cam is resolved to a short-lived HLS URL server-side and played through an API proxy because direct embedding is domain-restricted. Idle, ended, or non-embeddable cams are skipped automatically.
+YouTube cams play through YouTube's own IFrame player. The registry supports trusted source-published fixed livestream URLs (for specific requested cams) and category channels whose featured live stream is resolved from a stable `/live` URL. San Diego Zoo cams play via `hls.js` straight from the zoo's CDN. The Floating Green Verkada cam is resolved to a short-lived HLS URL server-side and played through an API proxy because direct embedding is domain-restricted. Idle, ended, or non-embeddable cams are skipped automatically.
 
 ## Fast Setup (new computer)
 

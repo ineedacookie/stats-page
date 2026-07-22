@@ -15,8 +15,8 @@ export type LiveCamDefinition =
     })
   | (LiveCamBase & {
       kind: 'youtube-video'
-      // A specific live broadcast. Seasonal broadcasts are retained safely
-      // because the liveness check skips them whenever they are offline.
+      // A specific broadcast URL published by a trusted source page.
+      // Keep these limited to feeds that are intended to run continuously.
       videoId: string
     })
   | (LiveCamBase & {
@@ -36,7 +36,7 @@ export type LiveCamDefinition =
 const camzone = (channel: string): string =>
   `https://${channel}.hls.camzonecdn.com/CamzoneStreams/${channel}/playlist.m3u8`
 
-// Curated for ad-free animal playback. Idle/offline cams are skipped
+// Curated for ad-free live playback. Idle/offline cams are skipped
 // automatically.
 //
 // Ad policy: YouTube entries must be official nonprofit or government feeds
@@ -47,23 +47,44 @@ const camzone = (channel: string): string =>
 // - explore.org: nonprofit live-nature-cam network. Non-monetized YouTube live
 //   streams played through YouTube's adaptive player. (Includes Katmai National
 //   Park's Brooks Falls bear cams.)
+// - Friends of Big Bear Valley: nonprofit eagle cams, free and non-monetized.
+// - National Park Service: official U.S. government educational feeds.
+// - Monterey Bay Aquarium: nonprofit aquarium education feeds.
+// - Duluth Harbor Cam (LSMMA partner): nonprofit maritime city-harbor cams.
+// - Noyo Center for Marine Science: nonprofit harbor live cam.
+// - Coral City Camera: nonprofit urban marine education cam (Miami).
+// - NASA: official U.S. government live space views.
+// - NOAA Ocean Exploration: official U.S. government ocean expeditions.
+// - USGS: official U.S. government volcano livestreams.
+// - Cornell Lab Bird Cams: nonprofit ornithology education livestreams.
+// - The Whale Museum: nonprofit marine-research webcam feed.
+// - UAF Fairbanks Aurora Cam: educational aurora feed (via explore.org).
+// - Raptor Resource Project: nonprofit eagle and raptor nest cams.
 // - U.S. Fish & Wildlife Service: a federal live wildlife cam.
 // - San Diego Zoo: direct HLS from the zoo's own CDN.
 // - Coeur d'Alene Floating Green: Verkada-hosted live cam resolved/proxied
 //   server-side because embed-domain restrictions block direct embedding here.
 export const LIVE_CAMS: LiveCamDefinition[] = [
-  // Specific explore.org broadcasts verified live and embeddable on 2026-07-20.
-  { id: 'explore-brooks-falls', kind: 'youtube-video', videoId: 'J7ZrIDvqlic', title: 'Brooks Falls Bear Cam', location: 'Katmai National Park, Alaska' },
-  { id: 'explore-brooks-river-watch', kind: 'youtube-video', videoId: 'wkVLYfU-Kew', title: 'Brooks River Bear Cam', location: 'Katmai National Park, Alaska' },
-  { id: 'explore-kats-river-view', kind: 'youtube-video', videoId: 'cTsjMtjRLCo', title: "Kat's River View Bear Cam", location: 'Katmai National Park, Alaska' },
-  { id: 'explore-anan-lower-falls', kind: 'youtube-video', videoId: 'RhP-_jX8-Zs', title: 'Anan Lower Falls Bear Cam', location: 'Tongass National Forest, Alaska' },
-  { id: 'explore-anan-fishing-hole', kind: 'youtube-video', videoId: 'ypMu3yA7h3s', title: 'Anan Fishing Hole Bear Cam', location: 'Tongass National Forest, Alaska' },
-  { id: 'explore-tembe-elephants', kind: 'youtube-video', videoId: '0P_LBKqVbfs', title: 'Tembe Elephant Waterhole', location: 'Tembe Elephant Park, South Africa' },
-  { id: 'explore-puffin-ledge', kind: 'youtube-video', videoId: 'daFe_ygulPY', title: 'Atlantic Puffin Loafing Ledge', location: 'Seal Island, Maine' },
-  { id: 'explore-penguin-beach', kind: 'youtube-video', videoId: 'GSxpCbXsvtI', title: 'Penguin Beach', location: 'Aquarium of the Pacific, California' },
-  { id: 'explore-bonobos', kind: 'youtube-video', videoId: 'gqP5nBCRbHA', title: 'Bonobo Sanctuary', location: 'Lola ya Bonobo, DR Congo' },
-  { id: 'explore-condors-san-simeon', kind: 'youtube-video', videoId: '1u6rKUrUot8', title: 'California Condor Sanctuary', location: 'San Simeon, California' },
-  { id: 'explore-jellyfish', kind: 'youtube-video', videoId: 'IYG9fnz40-E', title: 'Jellyfish Cam', location: 'Aquarium of the Pacific, California' },
+  // Requested source pages (verified embeds):
+  // - http://hyrumdamcam.com/
+  // - https://friendsofbigbearvalley.org/livestream/
+  { id: 'hyrum-dam-live', kind: 'youtube-video', videoId: 'xE5HObctj6c', title: 'Hyrum Dam Live Cam', location: 'Hyrum, Utah' },
+  { id: 'fobbv-eagle-cam-1', kind: 'youtube-video', videoId: 'B4-L2nfGcuE', title: 'Big Bear Bald Eagle Nest - Cam 1', location: 'Big Bear Valley, California' },
+  { id: 'fobbv-eagle-cam-2', kind: 'youtube-video', videoId: '41eq4VzCYc4', title: 'Big Bear Bald Eagle Wide View - Cam 2', location: 'Big Bear Valley, California' },
+  { id: 'nps-live', kind: 'youtube-channel', handle: 'nationalparkservice', title: 'National Park Service Live', location: 'U.S. National Park Service' },
+  { id: 'monterey-bay-aquarium-live', kind: 'youtube-channel', handle: 'MontereyBayAquarium', title: 'Monterey Bay Aquarium Live Cam', location: 'Monterey Bay Aquarium, California' },
+  { id: 'duluth-canal-cam', kind: 'youtube-video', videoId: 'HPS48TMmNag', title: 'Duluth Canal Cam', location: 'Duluth Harbor, Minnesota' },
+  { id: 'noyo-harbor-cam', kind: 'youtube-video', videoId: 'Yk1KoIAj6A8', title: 'Noyo Harbor Cam', location: 'Fort Bragg, California' },
+  { id: 'coral-city-camera', kind: 'youtube-video', videoId: '7i8ARjIeM2k', title: 'Coral City Camera', location: 'Miami, Florida' },
+  { id: 'nasa-iss-earth-view', kind: 'youtube-video', videoId: 'awQzjn72bI0', title: 'ISS Earth View', location: 'NASA / Low Earth Orbit' },
+  { id: 'noaa-ocean-exploration-live', kind: 'youtube-channel', handle: 'oceanexplorergov', title: 'NOAA Ocean Exploration Live', location: 'NOAA Ocean Exploration' },
+  { id: 'usgs-kilauea-v1', kind: 'youtube-video', videoId: 'HggWKlZv9yk', title: 'Kilauea Volcano Live (V1)', location: 'Hawaiian Volcano Observatory, Hawaii' },
+  { id: 'usgs-kilauea-v2', kind: 'youtube-video', videoId: 'Tz5tPqRRv1Y', title: 'Kilauea Volcano Live (V2)', location: 'Hawaiian Volcano Observatory, Hawaii' },
+  { id: 'usgs-kilauea-v3', kind: 'youtube-video', videoId: 'gXKuUyKt8mc', title: 'Kilauea Volcano Live (V3)', location: 'Hawaiian Volcano Observatory, Hawaii' },
+  { id: 'cornell-bird-cams', kind: 'youtube-channel', handle: 'CornellBirdCams', title: 'Cornell Bird Cams', location: 'Cornell Lab of Ornithology' },
+  { id: 'whale-museum-live', kind: 'youtube-channel', handle: 'thewhalemuseum', title: 'Lime Kiln Lighthouse Webcam', location: 'San Juan Island, Washington' },
+  { id: 'uaf-fairbanks-aurora', kind: 'youtube-video', videoId: 'O52zDyxg5QI', title: 'Fairbanks Aurora Camera', location: 'Fairbanks, Alaska' },
+  { id: 'raptor-resource-live', kind: 'youtube-channel', handle: 'RaptorResourceProject', title: 'Raptor Resource Project Live', location: 'Decorah, Iowa' },
 
   // explore.org category channels add whichever other broadcast is currently
   // featured live, while the entries above guarantee the requested viewpoints.
